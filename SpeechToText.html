@@ -76,6 +76,10 @@
         });
 
         document.getElementById('transcribe-btn').addEventListener('click', async () => {
+            if (!(await puter.auth.isSignedIn())){
+                await puter.auth.signIn();
+            }
+
             const fileInput = document.getElementById('audio-upload');
             const outputDiv = document.getElementById('transcript-output');
 
@@ -116,6 +120,10 @@
         });
 
         audioBtn.addEventListener('click', async () => {
+            if (!(await puter.auth.isSignedIn())){
+                await puter.auth.signIn();
+            }
+            
             let text = document.getElementById('tts-input').value.trim();
 
             if (!text) {
