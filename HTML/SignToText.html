@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignFlow</title>
+    <link rel="stylesheet" href="/CSS/styles-sign.css">
+</head>
+<body>
+    <header>
+        <h1>
+            <a href="/HTML/index.html" style="text-decoration: none;">SignFlow</a>
+        </h1>
+        <div class="navbar_toggle" id="mobile-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="navbar_menu">
+            <li class="navbar_item">
+                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">
+                    Home
+                </a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/SpeechToText.html" style="text-decoration: none;" class="navbar_links">
+                    Speech-To-Text
+                </a>
+            </li>
+        </ul>
+    </header>
+    <video class="video" id="video" autoplay playsinline muted></video>
+    <button class="button-neon" id="startButton">Start Recording</button>
+    <button class="button-neon" id="stopButton">Stop Recording</button>
+    <button class="button-neon" id="clearTranslation" style="margin-top: -20px;">Reset Text Output</button>
+    <div class="translation">
+        <div id="translation-letter"></div>
+        <div id="translation-sentence"></div>
+    </div>
+    <script type="module" src="/JS/sign.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignFlow</title>
+    <link rel="stylesheet" href="/CSS/styles-home.css">
+    <script src="/JS/index.js" defer></script>
+</head>
+<body>
+    <header>
+        <h1>
+            <a href="/HTML/index.html" style="text-decoration: none;">SignFlow</a>
+        </h1>
+        <div class="navbar_toggle" id="mobile-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="navbar_menu">
+            <li class="navbar_item">
+                <a href="/HTML/SpeechToText.html" style="text-decoration: none;" class="navbar_links">
+                    Speech-To-Text
+                </a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/SignToText.html" style="text-decoration: none;" class="navbar_links">
+                    Sign-To-Text
+                </a>
+            </li>
+        </ul>
+    </header>
+
+    <section class="section">
+        <div class="badge">
+            <span class="badge-dot"></span>
+            Accessibility · For Everyone · Real-time
+        </div>
+        <h2 class="h2">
+            Every voice deserves<br>
+            <span class="gradient">to be heard.</span>
+        </h2>
+        <p class="sub">
+            SignFlow breaks down communication barriers with 
+            <strong>real-time speech and sign language recognition</strong> 
+            — so everyone can participate, no matter how they communicate.
+        </p>
+        <div class="btns">
+            <a href="/HTML/SpeechToText.html" class="button-neon">Start Transcribing</a>
+            <a href="/HTML/SignToText.html" class="button-neon">Start Translating</a>
+            <a href="#team" class="button-neon">Meet the team ↓</a>
+        </div>
+    </section>
+    <div id="team"></div>
+
+    <div class="banner">
+        <div class="slider" style="--quantity: 6">
+          <div class="item" style="--position: 1" data-title="Aadhav Meganathan" data-desc="Hey, I'm Aadhav Meganathan, and I am a sophomore in high school. I enjoy building clean, scalable computer science solutions as a student developer, from websites and games to efficient, well-structured systems. Studying computer science and solving real world challenges are two things that interest me. I'm always looking for new ways to improve my skills and turn ideas into workable, practical solutions."><img src="/images/Aadhav.jpg" alt=""></div>
+          <div class="item" style="--position: 2" data-title="Aryan Vaidya" data-desc="My name is Aryan Vaidya, and I am a current 10th grade student at Rock Ridge High School and the Academies of Loudoun. Over the past couple years, I have developed a strong passion for robotics, 3D CAD modeling, and autonomous systems, and I enjoy designing and developing innovative solutions to real-world problems. Outside of academics, I like to have fun by playing volleyball, going for a swim, playing basketball with my friends, and playing the clarinet."><img src="/images/Aryan.jpeg" alt=""></div>
+          <div class="item" style="--position: 3" data-title="Revanth Kathuroju" data-desc="Hey, I'm Revanth Kathuroju! I'm a dedicated and passionate coder who is all about AI and Machine Learning. Just something about the intricate details of model structures excites me, and that drive pushes me to create projects of the future."><img src="/images/Revanth.jpeg" alt=""></div>
+          <div class="item" style="--position: 4" data-title="Rohan Vaidya" data-desc="Hi! My name is Rohan Vaidya, a sophomore in high school, and I was one of the coders for the development of this software/web app as well as a brainstormer for our idea. My main contributions included debugging, being able to access device webcam & mic feeds, and brainstorming with my peers on this idea. This includes color schemes, layout of the site, etc."><img src="/images/Rohan.jpg" alt=""></div>
+          <div class="item" style="--position: 5" data-title="Shashank Kesineni" data-desc="Hi, I'm Shashank Kesineni, and I am a sophomore in high school. I'm a student developer with a strong interest in using modern technologies to produce innovative, useful applications. To solve significant problems and improve user experiences, I like to leverage software development and artificial intelligence (AI) skills. Through projects like these, I hope to keep honing my skills and providing important solutions."><img src="/images/Shashank.jpg" alt=""></div>
+          <div class="item" style="--position: 6" data-title="Vivaan Davuluri" data-desc="My name is Vivaan Davuluri, a sophomore at Rock Ridge High School in Ashburn, Virginia, with a focused interest in machine learning, game development in Unity and Unreal Engine 5, and 3D animation in Blender. Outside of these pursuits, I am employed at Bricks and Minifigs, operate an independent LEGO resale business on Whatnot and eBay, and compete in the AAU basketball league."><img src="/images/Vivaan.jpeg" alt=""></div>
+        </div>
+        <button class="resume-btn" id="resume-btn">▶ Resume</button>
+        <div class="card-info" id="card-info">
+            <h2 class="card-title" id="card-title"></h2>
+            <p class="card-desc" id="card-desc"></p>
+        </div>
+    </div>
+</body>
+</html>
