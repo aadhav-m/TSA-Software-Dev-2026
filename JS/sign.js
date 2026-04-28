@@ -3,59 +3,143 @@ import {
   HandLandmarker,
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
-const video       = document.getElementById("video");
-const startBtn    = document.getElementById("startButton");
-const stopBtn     = document.getElementById("stopButton");
-const letterDiv   = document.getElementById("translation-letter");
+const video = document.getElementById("video");
+const startBtn = document.getElementById("startButton");
+const stopBtn = document.getElementById("stopButton");
+const letterDiv = document.getElementById("translation-letter");
 const sentenceDiv = document.getElementById("translation-sentence");
+const clearBtn = document.getElementById("clearTranslation");
 
-const HOLD_MS          = 800;
-const REPEAT_DELAY_MS  = 1800;
-const SMOOTH_WINDOW    = 6;
-const NOTHING_FRAMES   = 4;
-const MOTION_FRAMES    = 8;
-const MOTION_T         = 0.014;
+const HOLD_MS = 1200;
+const REPEAT_DELAY_MS = 1800;
+const SMOOTH_WINDOW = 9;
+const NOTHING_FRAMES = 4;
+const MOTION_FRAMES = 8;
+const MOTION_T = 0.014;
+
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],
+  [0,17],
+];
+
+const FINGER_COLORS = ["#ffffff","#ffffff","#ffffff","#ffffff","#ffffff"];
+const FINGER_RANGES = [[1,4],[5,8],[9,12],[13,16],[17,20]];
 
 let handLandmarker = null;
-let stream         = null;
-let rafId          = null;
-let running        = false;
-let lastVideoTime  = -1;
+let stream = null;
+let rafId = null;
+let running = false;
+let lastVideoTime = -1;
+let canvas = null;
+let ctx = null;
 
-let sentenceChars  = [];
-let lastLetter     = "";
-let holdStart      = 0;
+let sentenceChars = [];
+let lastLetter = "";
+let holdStart = 0;
 let lastCommitTime = 0;
 let lastCommitChar = "";
-let nothingCount   = 0;
+let nothingCount = 0;
 
 const predictionBuffer = [];
-const jHistory         = [];
-const zHistory         = [];
-let prevPinky          = null;
-let prevIndex          = null;
+const jHistory = [];
+const zHistory = [];
+let prevPinky = null;
+let prevIndex = null;
 
 function renderSentence() {
   sentenceDiv.textContent = sentenceChars.join("") || "\u00a0";
 }
 
+function setupCanvas() {
+  if (canvas) canvas.remove();
+  canvas = document.createElement("canvas");
+  canvas.style.position = "absolute";
+  canvas.style.pointerEvents = "none";
+  canvas.style.zIndex = "10";
+  canvas.width = 640;
+  canvas.height = 480;
+  video.parentNode.insertBefore(canvas, video.nextSibling);
+  ctx = canvas.getContext("2d");
+  positionCanvas();
+}
+
+function positionCanvas() {
+  if (!canvas) return;
+  const r = video.getBoundingClientRect();
+  const pr = video.parentNode.getBoundingClientRect();
+  canvas.style.top = (r.top - pr.top) + "px";
+  canvas.style.left = (r.left - pr.left) + "px";
+  canvas.style.width = r.width + "px";
+  canvas.style.height = r.height + "px";
+}
+
+function getFingerForLandmark(idx) {
+  for (let f = 0; f < FINGER_RANGES.length; f++) {
+    const [s, e] = FINGER_RANGES[f];
+    if (idx >= s && idx <= e) return f;
+  }
+  return -1;
+}
+
+function drawSkeleton(lm) {
+  if (!ctx || !canvas) return;
+  positionCanvas();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const sx = (v) => v * canvas.width;
+  const sy = (v) => v * canvas.height;
+  for (const [a, b] of CONNECTIONS) {
+    const fi = getFingerForLandmark(a);
+    const color = fi >= 0 ? FINGER_COLORS[fi] : "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(sx(lm[a].x), sy(lm[a].y));
+    ctx.lineTo(sx(lm[b].x), sy(lm[b].y));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  for (let i = 0; i < lm.length; i++) {
+    const fi = getFingerForLandmark(i);
+    const color = fi >= 0 ? FINGER_COLORS[fi] : "#ffffff";
+    const isTip = [4,8,12,16,20].includes(i);
+    const r = isTip ? 6 : 4;
+    ctx.beginPath();
+    ctx.arc(sx(lm[i].x), sy(lm[i].y), r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(sx(lm[i].x), sy(lm[i].y), r * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+  }
+}
+
+function clearCanvas() {
+  if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
 async function init() {
   letterDiv.textContent = "Loading model…";
-
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
   );
-
   handLandmarker = await HandLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",
     numHands: 1,
   });
-
   letterDiv.textContent = "Model ready — press Start";
   startBtn.addEventListener("click", startRecording);
   stopBtn.addEventListener("click", stopRecording);
@@ -69,10 +153,10 @@ async function startRecording() {
   });
   video.srcObject = stream;
   await video.play();
-
+  setupCanvas();
   running = true;
   startBtn.disabled = true;
-  stopBtn.disabled  = false;
+  stopBtn.disabled = false;
   letterDiv.textContent = "Show a sign…";
   rafId = requestAnimationFrame(detect);
 }
@@ -81,107 +165,99 @@ function stopRecording() {
   running = false;
   cancelAnimationFrame(rafId);
   stream?.getTracks().forEach((t) => t.stop());
-  video.srcObject   = null;
+  video.srcObject = null;
+  if (canvas) { canvas.remove(); canvas = null; ctx = null; }
   startBtn.disabled = false;
-  stopBtn.disabled  = true;
-  letterDiv.textContent   = "Stopped";
+  stopBtn.disabled = true;
+  letterDiv.textContent = "Stopped";
   predictionBuffer.length = 0;
-  jHistory.length         = 0;
-  zHistory.length         = 0;
-  prevPinky    = null;
-  prevIndex    = null;
-  lastLetter   = "";
-  holdStart    = 0;
+  jHistory.length = 0;
+  zHistory.length = 0;
+  prevPinky = null;
+  prevIndex = null;
+  lastLetter = "";
+  holdStart = 0;
   nothingCount = 0;
 }
 
 function detect(now) {
   if (!running) return;
-
   if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
     lastVideoTime = video.currentTime;
     const results = handLandmarker.detectForVideo(video, now);
-
     if (results.landmarks && results.landmarks.length > 0) {
       nothingCount = 0;
+      drawSkeleton(results.landmarks[0]);
       processLandmarks(results.landmarks[0], now);
     } else {
       nothingCount++;
       if (nothingCount >= NOTHING_FRAMES) {
+        clearCanvas();
         predictionBuffer.length = 0;
-        jHistory.length         = 0;
-        zHistory.length         = 0;
-        prevPinky    = null;
-        prevIndex    = null;
-        lastLetter   = "";
-        holdStart    = 0;
+        jHistory.length = 0;
+        zHistory.length = 0;
+        prevPinky = null;
+        prevIndex = null;
+        lastLetter = "";
+        holdStart = 0;
         letterDiv.textContent = "Show a sign…";
       }
     }
   }
-
   rafId = requestAnimationFrame(detect);
 }
 
 function smoothedPrediction(raw) {
   predictionBuffer.push(raw);
   if (predictionBuffer.length > SMOOTH_WINDOW) predictionBuffer.shift();
-
   const counts = {};
   for (const label of predictionBuffer) counts[label] = (counts[label] || 0) + 1;
-
   let best = raw, bestCount = 0;
   for (const [label, count] of Object.entries(counts)) {
     if (count > bestCount) { best = label; bestCount = count; }
   }
-  return best;
+  const MIN_CONFIDENCE = Math.ceil(SMOOTH_WINDOW * 0.4);
+  return bestCount >= MIN_CONFIDENCE ? best : "NOTHING";
 }
 
 function trackMotion(lm) {
   const px = lm[20].x, py = lm[20].y;
   const ix = lm[8].x,  iy = lm[8].y;
-
   const pdx = prevPinky ? px - prevPinky.x : 0;
   const pdy = prevPinky ? py - prevPinky.y : 0;
   const idx = prevIndex ? ix - prevIndex.x : 0;
-  const idy = prevIndex ? iy - prevIndex.y : 0;
-
   prevPinky = { x: px, y: py };
   prevIndex = { x: ix, y: iy };
-
   jHistory.push({ dx: pdx, dy: pdy });
   if (jHistory.length > MOTION_FRAMES) jHistory.shift();
-
-  zHistory.push({ dx: idx, dy: idy });
+  zHistory.push({ dx: idx, dy: 0 });
   if (zHistory.length > MOTION_FRAMES) zHistory.shift();
 }
 
 function detectJ() {
   if (jHistory.length < MOTION_FRAMES) return false;
-  const sumDy    = jHistory.reduce((s, f) => s + f.dy, 0);
+  const sumDy = jHistory.reduce((s, f) => s + f.dy, 0);
   const sumAbsDx = jHistory.reduce((s, f) => s + Math.abs(f.dx), 0);
   return sumDy > MOTION_T * 4 && sumAbsDx > MOTION_T * 2;
 }
 
 function detectZ() {
   if (zHistory.length < MOTION_FRAMES) return false;
-  const h    = Math.floor(zHistory.length / 2);
-  const dx1  = zHistory.slice(0, h).reduce((s, f) => s + f.dx, 0);
-  const dy1  = zHistory.slice(0, h).reduce((s, f) => s + f.dy, 0);
-  const dx2  = zHistory.slice(h).reduce((s, f) => s + f.dx, 0);
-  return dx1 > MOTION_T * 2 && dy1 > MOTION_T && dx2 > MOTION_T * 1.5;
+  const h = Math.floor(zHistory.length / 2);
+  const dx1 = zHistory.slice(0, h).reduce((s, f) => s + f.dx, 0);
+  const dx2 = zHistory.slice(h).reduce((s, f) => s + f.dx, 0);
+  return dx1 > MOTION_T * 2 && dx2 > MOTION_T * 1.5;
 }
 
 function processLandmarks(lm, now) {
   trackMotion(lm);
-
-  const raw    = classify(lm);
+  const raw = classify(lm);
   const letter = smoothedPrediction(raw);
 
   if (letter === "NOTHING") {
     letterDiv.textContent = "—";
     lastLetter = "";
-    holdStart  = 0;
+    holdStart = 0;
     return;
   }
 
@@ -192,7 +268,7 @@ function processLandmarks(lm, now) {
 
   if (letter !== lastLetter) {
     lastLetter = letter;
-    holdStart  = now;
+    holdStart = now;
     return;
   }
 
@@ -211,15 +287,12 @@ function processLandmarks(lm, now) {
   const held     = now - holdStart >= HOLD_MS;
   const sameChar = letter === lastCommitChar;
   const cooldown = now - lastCommitTime >= REPEAT_DELAY_MS;
-
-  if (held && (!sameChar || cooldown)) {
-    commitOnce(letter, now);
-  }
+  if (held && (!sameChar || cooldown)) commitOnce(letter, now);
 }
 
 function commitOnce(letter, now) {
   commit(letter);
-  holdStart      = now;
+  holdStart = now;
   lastCommitTime = now;
   lastCommitChar = letter;
 }
@@ -235,6 +308,9 @@ function commit(letter) {
   renderSentence();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CLASSIFIER — all thresholds derived from real captured debug data
+// ─────────────────────────────────────────────────────────────────────────────
 function classify(lm) {
   const lx = (i) => lm[i].x;
   const ly = (i) => lm[i].y;
@@ -257,130 +333,208 @@ function classify(lm) {
     const ma = Math.sqrt(abx*abx+aby*aby+abz*abz);
     const mc = Math.sqrt(cbx*cbx+cby*cby+cbz*cbz);
     const cos = (abx*cbx+aby*cby+abz*cbz)/(ma*mc||0.0001);
-    return Math.acos(Math.max(-1,Math.min(1,cos)))*180/Math.PI;
+    return Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
   }
 
-  const curl = (a,b,c,d) => (ang(a,b,c)+ang(b,c,d))/2;
+  const curl = (a, b, c, d) => (ang(a, b, c) + ang(b, c, d)) / 2;
 
-  const IC = curl(5,6,7,8);
-  const MC = curl(9,10,11,12);
-  const RC = curl(13,14,15,16);
-  const PC = curl(17,18,19,20);
+  const IC = curl(5, 6, 7, 8);
+  const MC = curl(9, 10, 11, 12);
+  const RC = curl(13, 14, 15, 16);
+  const PC = curl(17, 18, 19, 20);
 
-  const S = 155;
-  const H = 115;
-  const B = 85;
+  // From real data: extended = 165–179, curled = 88–115, mid = 120–150
+  const EXT = 150;
+  const CRL = 120;
 
-  const iStr = IC > S;
-  const mStr = MC > S;
-  const rStr = RC > S;
-  const pStr = PC > S;
+  const iExt = IC > EXT;
+  const mExt = MC > EXT;
+  const rExt = RC > EXT;
+  const pExt = PC > EXT;
 
-  const iHalf = IC >= H && IC < S;
-  const mHalf = MC >= H && MC < S;
-  const rHalf = RC >= H && RC < S;
-  const pHalf = PC >= H && PC < S;
+  const iCrl = IC < CRL;
+  const mCrl = MC < CRL;
+  const rCrl = RC < CRL;
+  const pCrl = PC < CRL;
 
-  const iCurl = IC < B;
-  const mCurl = MC < B;
-  const rCurl = RC < B;
-  const pCurl = PC < B;
+  // Mid-bent: between CRL and EXT
+  const iMid = !iExt && !iCrl;
+  const mMid = !mExt && !mCrl;
 
-  const allStr  = iStr && mStr && rStr && pStr;
-  const allCurl = iCurl && mCurl && rCurl && pCurl;
+  // Palm-normalised tip distances
+  const t_i = n3(4, 8);
+  const t_m = n3(4, 12);
+  const t_r = n3(4, 16);
+  const t_p = n3(4, 20);
+  const i_m = n3(8, 12);
 
-  const isRight = lx(17) < lx(5);
+  // 2D tip spread
+  const imGap = n2(8, 12);
+  const mrGap = n2(12, 16);
 
-  const thumbOutX = isRight
-    ? lx(4) < lx(2) - 0.04
-    : lx(4) > lx(2) + 0.04;
+  // Tip Y relative to MCP, palm-normalised. Negative = tip above base = pointing up.
+  // From data: extended upward = -0.69 to -1.00 | drooping/curled = +0.10 to +0.40
+  const iRelY = (ly(8)  - ly(5))  / palm;
+  const mRelY = (ly(12) - ly(9))  / palm;
+  const rRelY = (ly(16) - ly(13)) / palm;
+  const pRelY = (ly(20) - ly(17)) / palm;
 
-  const thumbUpY   = ly(4) < ly(2) - 0.06;
-  const thumbDownY = ly(4) > ly(3) + 0.05;
+  // Tip X relative to MCP, palm-normalised. Positive = tip to the right of base.
+  const iRelX = (lx(8) - lx(5)) / palm;
 
-  const thumbOverFront = n2(4, 9) < 0.38 && !thumbOutX;
-  const thumbAcrossPalm = n2(4, 17) < 0.55 && !thumbOutX && !thumbUpY;
+  // Thumb position relative to landmark 2 (thumb base), palm-normalised
+  const thumbRelX = (lx(4) - lx(2)) / palm;
+  const thumbRelY = (ly(4) - ly(2)) / palm;
 
-  const tipTouch = (a,b) => n3(a,b) < 0.13;
-  const tipNear  = (a,b) => n3(a,b) < 0.20;
-  const tipMid   = (a,b) => n3(a,b) < 0.28;
+  // Index finger direction vector (MCP→tip), unit-normalised
+  const iDirX  = lx(8) - lx(5);
+  const iDirY  = ly(8) - ly(5);
+  const iDirMag = Math.sqrt(iDirX*iDirX + iDirY*iDirY) || 0.0001;
+  const iDirYn  = iDirY / iDirMag;
 
-  const imGap = n2(8,12);
-  const mrGap = n2(12,16);
-  const rpGap = n2(16,20);
+  // Middle finger direction Y component, normalised
+  const mDirY   = ly(12) - ly(9);
+  const mDirX   = lx(12) - lx(9);
+  const mDirMag = Math.sqrt(mDirX*mDirX + mDirY*mDirY) || 0.0001;
+  const mDirYn  = mDirY / mDirMag;
 
-  const i8y   = ly(8);
-  const i5y   = ly(5);
-  const m12y  = ly(12);
-  const m9y   = ly(9);
+  // ── SPACE ─────────────────────────────────────────────────────────────────
+  // All fingers extended + thumb clearly out to the side (open hand)
+  if (iExt && mExt && rExt && pExt && thumbRelX > 0.8) return "SPACE";
 
-  const indexUp    = i8y < i5y - 0.04;
-  const indexDown  = i8y > i5y + 0.05;
-  const indexSide  = Math.abs(i8y - i5y) < 0.07;
+  // ── DELETE ────────────────────────────────────────────────────────────────
+  // All fingers curled, thumb pointing downward
+  if (iCrl && mCrl && rCrl && pCrl && thumbRelY > 0.5) return "DELETE";
 
-  const imHoriz = Math.abs(i8y - m12y) < 0.07 && Math.abs(i5y - m9y) < 0.07;
-  const imTog   = imGap < 0.09;
-  const imSprd  = imGap > 0.18;
+  // ── B ─────────────────────────────────────────────────────────────────────
+  // All 4 fingers fully extended upward, thumb tucked (not out to side)
+  // Data: IC=171, MC=173, RC=174, PC=179, iRelY=-0.69, thumbRelX=-0.06
+  if (iExt && mExt && rExt && pExt
+      && iRelY < -0.5 && mRelY < -0.5
+      && Math.abs(thumbRelX) < 0.35) return "B";
 
-  const tipAvgY = (ly(8)+ly(12)+ly(16)+ly(20))/4;
+  // ── W ─────────────────────────────────────────────────────────────────────
+  // Index + middle + ring extended with spread, pinky curled
+  if (iExt && mExt && rExt && !pExt && imGap > 0.15 && mrGap > 0.15) return "W";
 
-  if (allStr && thumbOutX)                                        return "SPACE";
-  if (allCurl && thumbDownY && !thumbOutX)                        return "DELETE";
+  // ── Two fingers up: U / R / V / K / H / P ────────────────────────────────
+  if (iExt && mExt && !rExt && !pExt) {
 
-  if (allStr && thumbAcrossPalm && !thumbOutX && tipAvgY < ly(0)) return "B";
+    // H: index pointing strongly sideways (horizontal)
+    // Data: H iRelX=1.28, iDirYn=0.12 — clearly horizontal, both fingers sideways
+    if (iRelX > 0.8 && Math.abs(iDirYn) < 0.4) return "H";
 
-  if (iStr && mStr && rStr && !pStr && imGap > 0.12 && mrGap > 0.12) return "W";
+    // R: both fingers pointing straight up, very close together (crossed)
+    // Data: R iRelY=-0.87, mRelY=-0.91, imGap=0.108
+    // U has imGap=0.196, so 0.13 is a clean dividing line
+    if (iRelY < -0.5 && mRelY < -0.5 && imGap < 0.13) return "R";
 
-  if (iStr && mStr && !rStr && !pStr) {
-    if (imTog && imHoriz)                                         return "H";
-    if (n3(8,12) < 0.07)                                         return "R";
-    if (!imTog && thumbUpY && n2(4,6) < 0.35)                    return "K";
-    if (imTog && !imHoriz)                                        return "U";
-    if (imSprd && !thumbUpY && !indexDown)                        return "V";
-    if (imSprd && indexDown && thumbUpY)                          return "P";
+    // U: both fingers up, together but not crossed
+    // Data: U iRelY=-0.78, mRelY=-0.91, imGap=0.196
+    if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.13 && imGap < 0.30) return "U";
+
+    // V: both fingers up, spread apart
+    // Data: V iRelY=-0.87, mRelY=-1.00, imGap=0.386
+    if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.30) return "V";
+
+    // K: index diagonal, middle up, thumb up — imGap large, iRelX noticeable
+    // Data: K iRelY=-0.46, mRelY=-0.85, iRelX=0.52, imGap=0.468, thumbRelY=-0.50
+    if (mRelY < -0.5 && iRelX > 0.3 && imGap > 0.30 && thumbRelY < -0.35) return "K";
+
+    // P: index sideways, middle drooping downward
+    // Data: P iRelY=-0.09, mRelY=+0.83, iRelX=0.71
+    if (iRelX > 0.5 && mRelY > 0.5) return "P";
   }
 
-  if (iStr && !mStr && !rStr && !pStr) {
-    if (thumbUpY && thumbOutX && indexUp)                         return "L";
-    if (indexSide && !thumbOutX && mCurl && rCurl && pCurl)       return "G";
-    if (indexDown && !thumbOutX && mCurl && rCurl && pCurl)       return "Q";
-    if (indexUp && tipNear(4,12) && mCurl && rCurl && !thumbOutX) return "D";
-    if (iHalf || (IC >= B && IC < S && !indexSide && !indexDown)) return "X";
-  }
+  // ── L ─────────────────────────────────────────────────────────────────────
+  // Index strongly up, rest curled, thumb out to the right
+  // Data: L iRelY=-1.00, MC=84 (crl), thumbRelX=+0.51
+  if (iExt && mCrl && rCrl && iRelY < -0.7 && thumbRelX > 0.35) return "L";
 
-  if (iHalf && !mStr && !rStr && !pStr && mCurl && rCurl && pCurl) return "X";
+  // ── D ─────────────────────────────────────────────────────────────────────
+  // Index fully up, middle/ring make a circle with thumb (but not curled tight)
+  // Data: D IC=175, MC=124 (mid), RC=125 (mid), imGap=0.976 (huge), t_m=0.252, t_r=0.175
+  // The "O" shape of middle+ring+thumb is the key: t_m and t_r small while index is fully up
+  if (iExt && !mExt && iRelY < -0.6 && imGap > 0.7 && t_m < 0.30 && t_r < 0.25) return "D";
 
-  if (iHalf && mHalf && rHalf && pHalf) {
-    const thumbCurl = ang(1,2,3);
-    if (n2(4,8) > 0.20)                                          return "C";
-  }
+  // ── G ─────────────────────────────────────────────────────────────────────
+  // Index pointing sideways, all others curled
+  // Data: G IC=176 (ext), mCrl (MC=101), iRelX=0.92, iRelY=0.036 (flat/horizontal)
+  if (iExt && mCrl && rCrl && pCrl && iRelX > 0.7 && Math.abs(iRelY) < 0.25) return "G";
 
-  if (!iStr && !mStr && !rStr && pStr) {
-    if (thumbOutX || thumbUpY)                                    return "I";
-    return "Y";
-  }
+  // ── Q ─────────────────────────────────────────────────────────────────────
+  // Index pointing sideways but not fully extended (IC=165), middle drooping
+  // Data: Q IC=165, iRelX=0.69, iRelY=-0.057, mRelY=+0.76
+  if (iExt && !mExt && iRelX > 0.5 && iRelY > -0.2 && mRelY > 0.5) return "Q";
 
-  if (!iStr && mStr && rStr && pStr && tipTouch(4,8) && iCurl)    return "F";
+  // ── X ─────────────────────────────────────────────────────────────────────
+  // Index hooked (mid-bent), others curled, tip still above MCP level
+  // Data: X IC=132 (mid), MC=99 (crl), iRelY=-0.56, imGap=0.892
+  if (iMid && mCrl && rCrl && pCrl && iRelY < -0.3 && imGap > 0.5) return "X";
 
-  if (!iStr && !mStr && !rStr && !pStr) {
-    if (tipTouch(4,8) && tipTouch(4,12) && tipTouch(4,16))       return "O";
+  // ── C ─────────────────────────────────────────────────────────────────────
+  // All fingers curved into C — all mid-bent, hand angled sideways, tips close
+  // Data: C IC=134, MC=120, RC=123, PC=138 — all mid-range
+  // iRelX=0.45, imGap=0.059, iRelY=-0.26
+  if (iMid && mMid && !iExt && !mExt && !rExt && !pExt
+      && iRelX > 0.3 && imGap < 0.12 && iRelY < -0.1 && iRelY > -0.5) return "C";
 
-    if (allCurl) {
-      if (tipNear(4,8) && tipNear(4,12) && ly(8)>ly(6) && ly(12)>ly(10)) return "E";
+  // ── F ─────────────────────────────────────────────────────────────────────
+  // Middle/ring/pinky extended up, index tip touches thumb tip
+  // Data: F MC=172, RC=175, PC=178, t_i=0.098, mRelY=-0.82
+  if (!iExt && mExt && rExt && pExt && t_i < 0.15 && mRelY < -0.5) return "F";
 
-      if (ly(8)>ly(5) && ly(12)>ly(9) && ly(16)>ly(13)) {
-        if (tipMid(4,16) && tipMid(4,8))                         return "M";
-        if (tipMid(4,12) && !tipMid(4,16))                       return "N";
-      }
+  // ── Y ─────────────────────────────────────────────────────────────────────
+  // Only pinky extended, thumb out — index/middle/ring curled
+  // Data: Y PC=172, IC=92, MC=92, RC=94, pRelY=-0.90, thumbRelY=-0.76
+  if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5 && thumbRelY < -0.4) return "Y";
 
-      if (!thumbOutX && !thumbDownY) {
-        if (n2(4,6) < 0.22 && n2(4,10) < 0.28 && ly(4) > ly(5)) return "T";
-        if (ly(4) < ly(8) && n2(4,8) < 0.28 && !thumbUpY)        return "S";
-        if (thumbOutX)                                            return "A";
-      }
+  // ── I ─────────────────────────────────────────────────────────────────────
+  // Only pinky extended, thumb neutral
+  if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5) return "I";
 
-      if (thumbOutX && !thumbDownY && !thumbUpY)                  return "A";
-    }
+  // ── All-curled group: O / E / T / M / N / S / A ──────────────────────────
+  if (!iExt && !mExt && !rExt && !pExt) {
+
+    // O: all fingertips forming a circle close to thumb — all t_x small, imGap tiny
+    // Data: O t_i=0.167, t_m=0.149, t_r=0.146, t_p=0.187, imGap=0.035
+    if (t_i < 0.22 && t_m < 0.22 && t_r < 0.22 && imGap < 0.10) return "O";
+
+    // E: all fingers curled, tips hovering near (but not quite touching) thumb
+    // Data: E IC=98, MC=94, RC=90, PC=92, t_i=0.146, t_m=0.157, iRelY≈0
+    // All curls ~90–100, tips near thumb, fingers roughly level with knuckles
+    if (IC < 115 && MC < 115 && RC < 115 && PC < 115
+        && t_i < 0.20 && t_m < 0.20 && Math.abs(iRelY) < 0.15) return "E";
+
+    // T: thumb pushes up between index and middle, index hooks forward
+    // Data: T IC=107, thumbRelY=-0.83 (thumb strongly UP), t_i=0.490, iRelY=-0.06
+    // Key signature: thumbRelY very negative (thumb pointing up) in a curled fist
+    if (IC < 120 && MC < 120 && thumbRelY < -0.65 && t_i < 0.60 && Math.abs(iRelY) < 0.20) return "T";
+
+    // M: thumb tucked under index+middle+ring, 3 fingers droop over it
+    // Data: M IC=107, MC=103, RC=97, PC=111, iRelY=+0.25, mRelY=+0.27
+    // t_m=0.598, t_r=0.432 — thumb is reaching across under middle/ring
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
+        && iRelY > 0.10 && mRelY > 0.10
+        && t_m < 0.70 && t_r < 0.55 && t_p > 0.50) return "M";
+
+    // N: thumb under index+middle only, ring/pinky not covered
+    // Data: N IC=104, MC=97, t_m=0.468, t_r=0.782 (thumb doesn't reach ring)
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
+        && iRelY > 0.05 && mRelY > 0.05
+        && t_m < 0.55 && t_r > 0.60) return "N";
+
+    // S: closed fist, thumb wraps across front of fingers
+    // Data: S IC=101, MC=94, RC=89, PC=90, t_i=0.281, thumbRelX=-0.22
+    // Thumb is centered/slightly left — not to the right like A
+    if (IC < 115 && MC < 115 && RC < 115 && PC < 115
+        && t_i < 0.35 && thumbRelX > -0.40 && thumbRelX < 0.15) return "S";
+
+    // A: fist with thumb resting to the side (not over fingers)
+    // Data: A IC=101, MC=99, RC=97, PC=97, thumbRelX=+0.189, t_i=0.600
+    // Thumb clearly to the right side, not touching index tip
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
+        && thumbRelX > 0.10 && t_i > 0.45) return "A";
   }
 
   return "NOTHING";
@@ -391,30 +545,27 @@ init().catch((err) => {
   letterDiv.textContent = "Error loading model. Check console.";
 });
 
-const toggle = document.getElementById('mobile-menu');
-const menu = document.querySelector('.navbar_menu');
+const toggle = document.getElementById("mobile-menu");
+const menu = document.querySelector(".navbar_menu");
 
-toggle.addEventListener('click', () => {
-  menu.classList.toggle('active');
-  toggle.classList.toggle('active');
+toggle.addEventListener("click", () => {
+  menu.classList.toggle("active");
+  toggle.classList.toggle("active");
 });
 
-const buttons = document.querySelectorAll('.button-neon');
-
+const buttons = document.querySelectorAll(".button-neon");
 buttons.forEach(btn => {
   const duration = 3.5 + Math.random() * 1.5;
-  btn.style.setProperty('--pulse-speed', `${duration}s`);
+  btn.style.setProperty("--pulse-speed", `${duration}s`);
   function randomize() {
     const hue = Math.floor(Math.random() * 260 + 100);
-    btn.style.setProperty('--hue', hue);
-    const nextDelay = 50 + Math.random() * 200;
-    setTimeout(randomize, nextDelay);
+    btn.style.setProperty("--hue", hue);
+    setTimeout(randomize, 50 + Math.random() * 200);
   }
   setTimeout(randomize, Math.random() * 500);
 });
 
-const clear = document.getElementById("clearTranslation");
-clear.addEventListener("click", () => {
+clearBtn.addEventListener("click", () => {
   sentenceChars = [];
   renderSentence();
 });
