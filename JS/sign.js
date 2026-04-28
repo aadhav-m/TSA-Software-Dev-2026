@@ -3,130 +3,40 @@ import {
   HandLandmarker,
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
-const video = document.getElementById("video");
-const startBtn = document.getElementById("startButton");
-const stopBtn = document.getElementById("stopButton");
-const letterDiv = document.getElementById("translation-letter");
+const video       = document.getElementById("video");
+const startBtn    = document.getElementById("startButton");
+const stopBtn     = document.getElementById("stopButton");
+const letterDiv   = document.getElementById("translation-letter");
 const sentenceDiv = document.getElementById("translation-sentence");
-const clearBtn = document.getElementById("clearTranslation");
 
-const HOLD_MS = 1200;
-const REPEAT_DELAY_MS = 1800;
-const SMOOTH_WINDOW = 6;
-const NOTHING_FRAMES = 4;
-const MOTION_FRAMES = 8;
-const MOTION_T = 0.014;
-
-const CONNECTIONS = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[17,18],[18,19],[19,20],
-  [0,17],
-];
-
-const FINGER_COLORS = ["#ffffff","#ffffff","#ffffff","#ffffff","#ffffff"];
-const FINGER_RANGES = [[1,4],[5,8],[9,12],[13,16],[17,20]];
+const HOLD_MS          = 800;
+const REPEAT_DELAY_MS  = 1800;
+const SMOOTH_WINDOW    = 6;
+const NOTHING_FRAMES   = 4;
+const MOTION_FRAMES    = 8;
+const MOTION_T         = 0.014;
 
 let handLandmarker = null;
-let stream = null;
-let rafId = null;
-let running = false;
-let lastVideoTime = -1;
-let canvas = null;
-let ctx = null;
+let stream         = null;
+let rafId          = null;
+let running        = false;
+let lastVideoTime  = -1;
 
-let sentenceChars = [];
-let lastLetter = "";
-let holdStart = 0;
+let sentenceChars  = [];
+let lastLetter     = "";
+let holdStart      = 0;
 let lastCommitTime = 0;
 let lastCommitChar = "";
-let nothingCount = 0;
+let nothingCount   = 0;
 
 const predictionBuffer = [];
-const jHistory = [];
-const zHistory = [];
-let prevPinky = null;
-let prevIndex = null;
+const jHistory         = [];
+const zHistory         = [];
+let prevPinky          = null;
+let prevIndex          = null;
 
 function renderSentence() {
   sentenceDiv.textContent = sentenceChars.join("") || "\u00a0";
-}
-
-function setupCanvas() {
-  if (canvas) canvas.remove();
-  canvas = document.createElement("canvas");
-  canvas.style.position = "absolute";
-  canvas.style.pointerEvents = "none";
-  canvas.style.zIndex = "10";
-  canvas.width = 640;
-  canvas.height = 480;
-  video.parentNode.insertBefore(canvas, video.nextSibling);
-  ctx = canvas.getContext("2d");
-  positionCanvas();
-}
-
-function positionCanvas() {
-  if (!canvas) return;
-  const r = video.getBoundingClientRect();
-  const pr = video.parentNode.getBoundingClientRect();
-  canvas.style.top = (r.top - pr.top) + "px";
-  canvas.style.left = (r.left - pr.left) + "px";
-  canvas.style.width = r.width + "px";
-  canvas.style.height = r.height + "px";
-}
-
-function getFingerForLandmark(idx) {
-  for (let f = 0; f < FINGER_RANGES.length; f++) {
-    const [s, e] = FINGER_RANGES[f];
-    if (idx >= s && idx <= e) return f;
-  }
-  return -1;
-}
-
-function drawSkeleton(lm) {
-  if (!ctx || !canvas) return;
-  positionCanvas();
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const sx = (v) => v * canvas.width;
-  const sy = (v) => v * canvas.height;
-
-  for (const [a, b] of CONNECTIONS) {
-    const fi = getFingerForLandmark(a);
-    const color = fi >= 0 ? FINGER_COLORS[fi] : "#ffffff";
-    ctx.beginPath();
-    ctx.moveTo(sx(lm[a].x), sy(lm[a].y));
-    ctx.lineTo(sx(lm[b].x), sy(lm[b].y));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 8;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  }
-
-  for (let i = 0; i < lm.length; i++) {
-    const fi = getFingerForLandmark(i);
-    const color = fi >= 0 ? FINGER_COLORS[fi] : "#ffffff";
-    const isTip = [4,8,12,16,20].includes(i);
-    const r = isTip ? 6 : 4;
-    ctx.beginPath();
-    ctx.arc(sx(lm[i].x), sy(lm[i].y), r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.beginPath();
-    ctx.arc(sx(lm[i].x), sy(lm[i].y), r * 0.45, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-  }
-}
-
-function clearCanvas() {
-  if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
 async function init() {
@@ -138,7 +48,8 @@ async function init() {
 
   handLandmarker = await HandLandmarker.createFromOptions(vision, {
     baseOptions: {
-      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",
@@ -158,10 +69,10 @@ async function startRecording() {
   });
   video.srcObject = stream;
   await video.play();
-  setupCanvas();
+
   running = true;
   startBtn.disabled = true;
-  stopBtn.disabled = false;
+  stopBtn.disabled  = false;
   letterDiv.textContent = "Show a sign…";
   rafId = requestAnimationFrame(detect);
 }
@@ -170,18 +81,17 @@ function stopRecording() {
   running = false;
   cancelAnimationFrame(rafId);
   stream?.getTracks().forEach((t) => t.stop());
-  video.srcObject = null;
-  if (canvas) { canvas.remove(); canvas = null; ctx = null; }
+  video.srcObject   = null;
   startBtn.disabled = false;
-  stopBtn.disabled = true;
-  letterDiv.textContent = "Stopped";
+  stopBtn.disabled  = true;
+  letterDiv.textContent   = "Stopped";
   predictionBuffer.length = 0;
-  jHistory.length = 0;
-  zHistory.length = 0;
-  prevPinky = null;
-  prevIndex = null;
-  lastLetter = "";
-  holdStart = 0;
+  jHistory.length         = 0;
+  zHistory.length         = 0;
+  prevPinky    = null;
+  prevIndex    = null;
+  lastLetter   = "";
+  holdStart    = 0;
   nothingCount = 0;
 }
 
@@ -194,19 +104,17 @@ function detect(now) {
 
     if (results.landmarks && results.landmarks.length > 0) {
       nothingCount = 0;
-      drawSkeleton(results.landmarks[0]);
       processLandmarks(results.landmarks[0], now);
     } else {
       nothingCount++;
       if (nothingCount >= NOTHING_FRAMES) {
-        clearCanvas();
         predictionBuffer.length = 0;
-        jHistory.length = 0;
-        zHistory.length = 0;
-        prevPinky = null;
-        prevIndex = null;
-        lastLetter = "";
-        holdStart = 0;
+        jHistory.length         = 0;
+        zHistory.length         = 0;
+        prevPinky    = null;
+        prevIndex    = null;
+        lastLetter   = "";
+        holdStart    = 0;
         letterDiv.textContent = "Show a sign…";
       }
     }
@@ -231,7 +139,7 @@ function smoothedPrediction(raw) {
 
 function trackMotion(lm) {
   const px = lm[20].x, py = lm[20].y;
-  const ix = lm[8].x, iy = lm[8].y;
+  const ix = lm[8].x,  iy = lm[8].y;
 
   const pdx = prevPinky ? px - prevPinky.x : 0;
   const pdy = prevPinky ? py - prevPinky.y : 0;
@@ -250,41 +158,41 @@ function trackMotion(lm) {
 
 function detectJ() {
   if (jHistory.length < MOTION_FRAMES) return false;
-  const sumDy = jHistory.reduce((s, f) => s + f.dy, 0);
+  const sumDy    = jHistory.reduce((s, f) => s + f.dy, 0);
   const sumAbsDx = jHistory.reduce((s, f) => s + Math.abs(f.dx), 0);
   return sumDy > MOTION_T * 4 && sumAbsDx > MOTION_T * 2;
 }
 
 function detectZ() {
   if (zHistory.length < MOTION_FRAMES) return false;
-  const h = Math.floor(zHistory.length / 2);
-  const dx1 = zHistory.slice(0, h).reduce((s, f) => s + f.dx, 0);
-  const dy1 = zHistory.slice(0, h).reduce((s, f) => s + f.dy, 0);
-  const dx2 = zHistory.slice(h).reduce((s, f) => s + f.dx, 0);
+  const h    = Math.floor(zHistory.length / 2);
+  const dx1  = zHistory.slice(0, h).reduce((s, f) => s + f.dx, 0);
+  const dy1  = zHistory.slice(0, h).reduce((s, f) => s + f.dy, 0);
+  const dx2  = zHistory.slice(h).reduce((s, f) => s + f.dx, 0);
   return dx1 > MOTION_T * 2 && dy1 > MOTION_T && dx2 > MOTION_T * 1.5;
 }
 
 function processLandmarks(lm, now) {
   trackMotion(lm);
 
-  const raw = classify(lm);
+  const raw    = classify(lm);
   const letter = smoothedPrediction(raw);
 
   if (letter === "NOTHING") {
     letterDiv.textContent = "—";
     lastLetter = "";
-    holdStart = 0;
+    holdStart  = 0;
     return;
   }
 
   letterDiv.textContent =
-    letter === "SPACE" ? "[ SPACE ]" :
+    letter === "SPACE"  ? "[ SPACE ]"  :
     letter === "DELETE" ? "[ DELETE ]" :
     letter;
 
   if (letter !== lastLetter) {
     lastLetter = letter;
-    holdStart = now;
+    holdStart  = now;
     return;
   }
 
@@ -300,16 +208,18 @@ function processLandmarks(lm, now) {
     return;
   }
 
-  const held = now - holdStart >= HOLD_MS;
+  const held     = now - holdStart >= HOLD_MS;
   const sameChar = letter === lastCommitChar;
   const cooldown = now - lastCommitTime >= REPEAT_DELAY_MS;
 
-  if (held && (!sameChar || cooldown)) commitOnce(letter, now);
+  if (held && (!sameChar || cooldown)) {
+    commitOnce(letter, now);
+  }
 }
 
 function commitOnce(letter, now) {
   commit(letter);
-  holdStart = now;
+  holdStart      = now;
   lastCommitTime = now;
   lastCommitChar = letter;
 }
@@ -376,7 +286,7 @@ function classify(lm) {
   const rCurl = RC < B;
   const pCurl = PC < B;
 
-  const allStr = iStr && mStr && rStr && pStr;
+  const allStr  = iStr && mStr && rStr && pStr;
   const allCurl = iCurl && mCurl && rCurl && pCurl;
 
   const isRight = lx(17) < lx(5);
@@ -385,84 +295,91 @@ function classify(lm) {
     ? lx(4) < lx(2) - 0.04
     : lx(4) > lx(2) + 0.04;
 
-  const thumbUpY = ly(4) < ly(2) - 0.06;
+  const thumbUpY   = ly(4) < ly(2) - 0.06;
   const thumbDownY = ly(4) > ly(3) + 0.05;
 
+  const thumbOverFront = n2(4, 9) < 0.38 && !thumbOutX;
   const thumbAcrossPalm = n2(4, 17) < 0.55 && !thumbOutX && !thumbUpY;
 
   const tipTouch = (a,b) => n3(a,b) < 0.13;
-  const tipNear = (a,b) => n3(a,b) < 0.20;
-  const tipMid = (a,b) => n3(a,b) < 0.28;
+  const tipNear  = (a,b) => n3(a,b) < 0.20;
+  const tipMid   = (a,b) => n3(a,b) < 0.28;
 
   const imGap = n2(8,12);
   const mrGap = n2(12,16);
+  const rpGap = n2(16,20);
 
-  const i8y = ly(8);
-  const i5y = ly(5);
-  const m12y = ly(12);
-  const m9y = ly(9);
+  const i8y   = ly(8);
+  const i5y   = ly(5);
+  const m12y  = ly(12);
+  const m9y   = ly(9);
 
-  const indexUp = i8y < i5y - 0.04;
-  const indexDown = i8y > i5y + 0.05;
-  const indexSide = Math.abs(i8y - i5y) < 0.07;
+  const indexUp    = i8y < i5y - 0.04;
+  const indexDown  = i8y > i5y + 0.05;
+  const indexSide  = Math.abs(i8y - i5y) < 0.07;
 
   const imHoriz = Math.abs(i8y - m12y) < 0.07 && Math.abs(i5y - m9y) < 0.07;
-  const imTog = imGap < 0.09;
-  const imSprd = imGap > 0.18;
+  const imTog   = imGap < 0.09;
+  const imSprd  = imGap > 0.18;
 
   const tipAvgY = (ly(8)+ly(12)+ly(16)+ly(20))/4;
 
-  if (allStr && thumbOutX) return "SPACE";
-  if (allCurl && thumbDownY && !thumbOutX) return "DELETE";
+  if (allStr && thumbOutX)                                        return "SPACE";
+  if (allCurl && thumbDownY && !thumbOutX)                        return "DELETE";
 
   if (allStr && thumbAcrossPalm && !thumbOutX && tipAvgY < ly(0)) return "B";
 
   if (iStr && mStr && rStr && !pStr && imGap > 0.12 && mrGap > 0.12) return "W";
 
   if (iStr && mStr && !rStr && !pStr) {
-    if (imTog && imHoriz) return "H";
-    if (n3(8,12) < 0.07) return "R";
-    if (!imTog && thumbUpY && n2(4,6) < 0.35) return "K";
-    if (imTog && !imHoriz) return "U";
-    if (imSprd && !thumbUpY && !indexDown) return "V";
-    if (imSprd && indexDown && thumbUpY) return "P";
+    if (imTog && imHoriz)                                         return "H";
+    if (n3(8,12) < 0.07)                                         return "R";
+    if (!imTog && thumbUpY && n2(4,6) < 0.35)                    return "K";
+    if (imTog && !imHoriz)                                        return "U";
+    if (imSprd && !thumbUpY && !indexDown)                        return "V";
+    if (imSprd && indexDown && thumbUpY)                          return "P";
   }
 
   if (iStr && !mStr && !rStr && !pStr) {
-    if (thumbUpY && thumbOutX && indexUp) return "L";
-    if (indexSide && !thumbOutX && mCurl && rCurl && pCurl) return "G";
-    if (indexDown && !thumbOutX && mCurl && rCurl && pCurl) return "Q";
+    if (thumbUpY && thumbOutX && indexUp)                         return "L";
+    if (indexSide && !thumbOutX && mCurl && rCurl && pCurl)       return "G";
+    if (indexDown && !thumbOutX && mCurl && rCurl && pCurl)       return "Q";
     if (indexUp && tipNear(4,12) && mCurl && rCurl && !thumbOutX) return "D";
+    if (iHalf || (IC >= B && IC < S && !indexSide && !indexDown)) return "X";
   }
 
   if (iHalf && !mStr && !rStr && !pStr && mCurl && rCurl && pCurl) return "X";
 
-  if (iHalf && mHalf && rHalf && pHalf && n2(4,8) > 0.20) return "C";
+  if (iHalf && mHalf && rHalf && pHalf) {
+    const thumbCurl = ang(1,2,3);
+    if (n2(4,8) > 0.20)                                          return "C";
+  }
 
   if (!iStr && !mStr && !rStr && pStr) {
-    if (thumbOutX || thumbUpY) return "Y";
+    if (thumbOutX || thumbUpY)                                    return "Y";
     return "I";
   }
 
-  if (!iStr && mStr && rStr && pStr && tipTouch(4,8) && iCurl) return "F";
+  if (!iStr && mStr && rStr && pStr && tipTouch(4,8) && iCurl)    return "F";
 
   if (!iStr && !mStr && !rStr && !pStr) {
-    if (tipTouch(4,8) && tipTouch(4,12) && tipTouch(4,16)) return "O";
+    if (tipTouch(4,8) && tipTouch(4,12) && tipTouch(4,16))       return "O";
 
     if (allCurl) {
       if (tipNear(4,8) && tipNear(4,12) && ly(8)>ly(6) && ly(12)>ly(10)) return "E";
 
       if (ly(8)>ly(5) && ly(12)>ly(9) && ly(16)>ly(13)) {
-        if (tipMid(4,16) && tipMid(4,8)) return "M";
-        if (tipMid(4,12) && !tipMid(4,16)) return "N";
+        if (tipMid(4,16) && tipMid(4,8))                         return "M";
+        if (tipMid(4,12) && !tipMid(4,16))                       return "N";
       }
 
       if (!thumbOutX && !thumbDownY) {
         if (n2(4,6) < 0.22 && n2(4,10) < 0.28 && ly(4) > ly(5)) return "T";
-        if (ly(4) < ly(8) && n2(4,8) < 0.28 && !thumbUpY) return "S";
+        if (ly(4) < ly(8) && n2(4,8) < 0.28 && !thumbUpY)        return "S";
+        if (thumbOutX)                                            return "A";
       }
 
-      if (thumbOutX && !thumbDownY && !thumbUpY) return "A";
+      if (thumbOutX && !thumbDownY && !thumbUpY)                  return "A";
     }
   }
 
@@ -474,27 +391,30 @@ init().catch((err) => {
   letterDiv.textContent = "Error loading model. Check console.";
 });
 
-const toggle = document.getElementById("mobile-menu");
-const menu = document.querySelector(".navbar_menu");
+const toggle = document.getElementById('mobile-menu');
+const menu = document.querySelector('.navbar_menu');
 
-toggle.addEventListener("click", () => {
-  menu.classList.toggle("active");
-  toggle.classList.toggle("active");
+toggle.addEventListener('click', () => {
+  menu.classList.toggle('active');
+  toggle.classList.toggle('active');
 });
 
-const buttons = document.querySelectorAll(".button-neon");
+const buttons = document.querySelectorAll('.button-neon');
+
 buttons.forEach(btn => {
   const duration = 3.5 + Math.random() * 1.5;
-  btn.style.setProperty("--pulse-speed", `${duration}s`);
+  btn.style.setProperty('--pulse-speed', `${duration}s`);
   function randomize() {
     const hue = Math.floor(Math.random() * 260 + 100);
-    btn.style.setProperty("--hue", hue);
-    setTimeout(randomize, 50 + Math.random() * 200);
+    btn.style.setProperty('--hue', hue);
+    const nextDelay = 50 + Math.random() * 200;
+    setTimeout(randomize, nextDelay);
   }
   setTimeout(randomize, Math.random() * 500);
 });
 
-clearBtn.addEventListener("click", () => {
+const clear = document.getElementById("clearTranslation");
+clear.addEventListener("click", () => {
   sentenceChars = [];
   renderSentence();
 });
