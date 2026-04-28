@@ -356,8 +356,8 @@ function classify(lm) {
   }
 
   if (!iStr && !mStr && !rStr && pStr) {
-    if (thumbOutX || thumbUpY)                                    return "Y";
-    return "I";
+    if (thumbOutX || thumbUpY)                                    return "I";
+    return "Y";
   }
 
   if (!iStr && mStr && rStr && pStr && tipTouch(4,8) && iCurl)    return "F";
