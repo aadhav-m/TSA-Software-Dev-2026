@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignFlow — Capture Landmarks</title>
+    <link rel="stylesheet" href="/CSS/styles-sign.css">
+    <link rel="stylesheet" href="/CSS/styles-textToSign.css">
+</head>
+<body>
+    <header>
+        <h1>
+            <a href="/HTML/index.html" style="text-decoration: none;">SignFlow</a>
+        </h1>
+        <div class="navbar_toggle" id="mobile-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="navbar_menu">
+            <li class="navbar_item">
+                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">Home</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/SignToText.html" style="text-decoration: none;" class="navbar_links">Sign-To-Text</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSign.html" style="text-decoration: none;" class="navbar_links">Text → Sign</a>
+            </li>
+        </ul>
+    </header>
+
+    <div class="cap-wrapper">
+        <h2 style="font-family:'Outfit',sans-serif;font-size:1.8rem;color:#1E1A17;margin:10px 0;">One-time landmark capture</h2>
+        <p class="cap-intro">
+            Sign each letter A–Z into the camera. The page records 21-point MediaPipe
+            <em>worldLandmarks</em> per letter and lets you download a JSON file.
+            Save the file as <code>Assets/asl_letters.json</code> so the renderer can read it.
+            J and Z capture only their <em>end pose</em>; the motion path is a TODO.
+        </p>
+
+        <div class="cap-stage">
+            <video id="cap-video" autoplay playsinline muted width="640" height="480"></video>
+            <canvas id="cap-canvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="cap-letter" id="cap-letter">A</div>
+        <div class="cap-status" id="cap-status">Loading…</div>
+
+        <div class="cap-controls">
+            <button class="button-neon" id="cap-start"><span>Start Camera</span></button>
+            <button class="button-neon" id="cap-capture"><span>Capture</span></button>
+            <button class="button-neon" id="cap-retry"><span>Re-do Last</span></button>
+            <button class="button-neon" id="cap-download" disabled><span>Download JSON</span></button>
+        </div>
+
+        <div class="cap-grid" id="cap-grid"></div>
+    </div>
+
+    <script type="module" src="/JS/textToSign/captureLandmarks.js"></script>
+</body>
+</html>

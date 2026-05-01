@@ -1,0 +1,422 @@
+/* Text-to-fingerspelling styles. Adds onto the existing palette: */
+/*   bg #F2EDE8, panel #FAF7F4, accent #E8845A / #C45020, secondary #2ABFB0 */
+
+/* ─── Shared page-head ───────────────────────────────────────────────────── */
+
+.page-head {
+  text-align: center;
+  margin: 28px auto 14px;
+  max-width: 720px;
+  padding: 0 16px;
+}
+
+.page-head h2 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 2rem;
+  margin: 0 0 6px;
+  background: linear-gradient(90deg, #C45020, #E8845A, #2ABFB0, #1A9E91);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 6s ease-in-out infinite;
+  letter-spacing: -0.4px;
+}
+
+.page-head .lead {
+  color: #7A6F68;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ─── Compact / ghost / primary button variants ──────────────────────────── */
+/* Scoped to new pages so we don't disturb the existing 60px-margin button. */
+
+.t2s-page .button-neon,
+.s2t-page .button-neon {
+  margin: 0;
+}
+
+.button-neon.compact {
+  padding: 10px 22px;
+  font-size: 0.85rem;
+}
+
+.button-neon.primary {
+  background: linear-gradient(135deg, #E8845A, #C45020);
+  color: #FAF7F4;
+  border-color: transparent;
+  padding: 14px 36px;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 18px rgba(196,80,32,0.35);
+}
+
+.button-neon.primary:hover {
+  box-shadow: 0 6px 24px rgba(196,80,32,0.45);
+}
+
+.button-neon.ghost {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.12);
+}
+
+/* ─── Generic panel ──────────────────────────────────────────────────────── */
+
+.panel {
+  background: #FAF7F4;
+  border: 1px solid rgba(0,0,0,0.07);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-label {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #C45020;
+  background: rgba(232, 132, 90, 0.12);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.panel-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #A89F96;
+}
+
+/* ─── Text-To-Sign page ──────────────────────────────────────────────────── */
+
+.t2s-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+.t2s-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.t2s-page textarea#t2s-source {
+  width: 100%;
+  min-height: 130px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  border: 2px solid #E6DDD5;
+  background: #F2EDE8;
+  color: #1E1A17;
+  box-sizing: border-box;
+}
+
+.t2s-page textarea#t2s-source:focus {
+  border-color: #2ABFB0;
+  box-shadow: 0 0 14px rgba(42,191,176,0.25);
+}
+
+.voice-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.voice-row #audio-upload {
+  flex: 1;
+  min-width: 140px;
+  font-family: 'Inter', sans-serif;
+  color: #7A6F68;
+  font-size: 0.82rem;
+}
+
+.voice-row #audio-upload::file-selector-button {
+  all: unset;
+  padding: 8px 16px;
+  margin-right: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #F2EDE8, #E6DDD5);
+  color: #1E1A17;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.voice-row #audio-upload::file-selector-button:hover {
+  background: linear-gradient(135deg, #E6DDD5, #D8CEC6);
+}
+
+.rec-status {
+  font-family: 'JetBrains Mono', monospace;
+  color: #7A6F68;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(0,0,0,0.08);
+}
+
+.setup-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #A89F96;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.setup-note a {
+  color: #C45020;
+  text-decoration: none;
+  border-bottom: 1px dotted #C45020;
+}
+
+.setup-note a:hover { color: #E8845A; border-bottom-color: #E8845A; }
+
+.t2s-page .t2s-canvas {
+  width: 100%;
+  height: 380px;
+  margin: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #F2EDE8, #E6DDD5);
+  border: 1px solid rgba(0,0,0,0.06);
+  display: block;
+}
+
+.t2s-page .t2s-status {
+  text-align: center;
+  margin: 0;
+}
+
+.t2s-page .t2s-status.warn {
+  color: #C45020;
+  font-weight: 600;
+  background: rgba(232,132,90,0.10);
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(196,80,32,0.25);
+}
+
+@media (max-width: 880px) {
+  .t2s-grid {
+    grid-template-columns: 1fr;
+  }
+  .t2s-page .t2s-canvas { height: 70vw; max-height: 420px; }
+}
+
+
+/* ─── Capture page ───────────────────────────────────────────────────────── */
+
+.cap-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 30px 16px 60px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.cap-intro {
+  color: #7A6F68;
+  max-width: 560px;
+  text-align: center;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.cap-intro code {
+  font-family: 'JetBrains Mono', monospace;
+  background: #FAF7F4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.07);
+  font-size: 0.85em;
+}
+
+.cap-stage {
+  position: relative;
+  width: 640px;
+  max-width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.cap-stage video,
+.cap-stage canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.cap-stage canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cap-letter {
+  font-family: 'Outfit', sans-serif;
+  font-size: 4rem;
+  font-weight: 800;
+  color: #C45020;
+  letter-spacing: -2px;
+  line-height: 1;
+  min-height: 4rem;
+}
+
+.cap-status {
+  font-family: 'JetBrains Mono', monospace;
+  color: #7A6F68;
+  font-size: 0.85rem;
+  min-height: 1.2em;
+  text-align: center;
+}
+
+.cap-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cap-controls .button-neon {
+  margin: 0;
+  padding: 10px 24px;
+  font-size: 0.85rem;
+}
+
+.cap-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 28px);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cap-cell {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  background: #FAF7F4;
+  color: #7A6F68;
+  border: 1px solid rgba(0,0,0,0.08);
+  transition: all 0.18s ease;
+}
+
+.cap-cell.done {
+  background: #2ABFB0;
+  color: #FAF7F4;
+  border-color: transparent;
+}
+
+.cap-cell.active {
+  outline: 2px solid #E8845A;
+  outline-offset: 2px;
+  color: #C45020;
+}
+
+/* ─── Text-to-Sign widget on SpeechToText page ──────────────────────────── */
+
+.t2s-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.t2s-canvas {
+  width: 480px;
+  height: 360px;
+  max-width: 92vw;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #FAF7F4, #F2EDE8);
+  border: 1px solid rgba(0,0,0,0.07);
+  box-shadow:
+    0 6px 20px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+  display: block;
+}
+
+.t2s-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.t2s-controls .button-neon {
+  margin: 0;
+  padding: 10px 24px;
+  font-size: 0.85rem;
+}
+
+.t2s-mirror {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7A6F68;
+  font-size: 0.85rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.t2s-mirror input {
+  accent-color: #C45020;
+}
+
+.t2s-status {
+  font-family: 'JetBrains Mono', monospace;
+  color: #7A6F68;
+  font-size: 0.8rem;
+  min-height: 1em;
+  text-align: center;
+  max-width: 540px;
+}
+
+@media (max-width: 768px) {
+  .cap-grid { grid-template-columns: repeat(13, 22px); }
+  .cap-cell { width: 22px; height: 22px; font-size: 0.7rem; }
+  .t2s-canvas { width: 92vw; height: 70vw; }
+}
