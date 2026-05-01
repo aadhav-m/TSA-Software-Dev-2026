@@ -1,20 +1,8 @@
-// 2D landmark renderer for text-to-fingerspelling.
-//
-// Draws the MediaPipe 21-point hand skeleton as colour-coded lines + dots on
-// a Canvas2D context, animating between captured letter frames. No three.js,
-// no GLB, no bones — just point lerping. The original GLB rig had no skin
-// weights so the mesh couldn't deform; this approach sidesteps that entirely
-// and shows you exactly the shape MediaPipe captured for each letter.
-//
-// Public API matches the previous SignRenderer so the auto-init wiring on
-// TextToSign.html keeps working: load(), playText(), stop(), setMirror().
-
 import { synthesize, validateAgainstClassifier } from './syntheticLetters.js';
 
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const STATIC_END_POSE_LETTERS = ['J', 'Z'];
 
-// MediaPipe topology — same edges as the existing skeleton overlay in sign.js.
 const CONNECTIONS = [
   [0, 1], [1, 2], [2, 3], [3, 4],
   [0, 5], [5, 6], [6, 7], [7, 8],
@@ -33,7 +21,6 @@ const FINGER_LANDMARKS = {
 };
 const TIPS = new Set([4, 8, 12, 16, 20]);
 
-// Site-palette colours, one per finger plus base.
 const COLORS = {
   thumb:  '#E8845A',
   index:  '#C45020',
@@ -46,7 +33,6 @@ const COLORS = {
   bg:     '#F2EDE8',
 };
 
-// Spec timings.
 const TRANSITION_MS = 150;
 const HOLD_MS       = 250;
 const RELAX_FRAC    = 0.30;
@@ -62,7 +48,6 @@ const _fingerByLandmark = (() => {
 
 const _fingerByEdge = CONNECTIONS.map(([a, b]) => {
   if (a === 0 || b === 0) return _fingerByLandmark[a === 0 ? b : a];
-  // Cross-MCP edges (5-9, 9-13, 13-17): part of palm.
   const fa = _fingerByLandmark[a], fb = _fingerByLandmark[b];
   return fa === fb ? fa : 'palm';
 });
@@ -72,11 +57,11 @@ export class SignRenderer {
     this.canvas   = canvas;
     this.ctx      = canvas.getContext('2d');
     this.dataURL  = opts.dataURL ?? '/Assets/asl_letters.json';
-    this.mirror   = opts.mirror  ?? null; // null = auto from data handedness
+    this.mirror   = opts.mirror  ?? null;
     this.onStatus = opts.onStatus ?? (() => {});
 
-    this._rawLetters    = null;       // { A: [21 pts], … }
-    this.letterFrames   = null;       // mirrored copy, ready to render
+    this._rawLetters    = null;
+    this.letterFrames   = null;
     this.dataHandedness = null;
     this.currentLandmarks = null;
     this.queue   = [];
@@ -112,13 +97,9 @@ export class SignRenderer {
     }
     this.dataHandedness = data.handedness ?? 'Right';
     if (this.mirror === null) {
-      // Default: GLB hand is right-handed in our coord system; flip if the
-      // captured hand is the other side, so the rendered diagram matches the
-      // user's mental "as if I'm signing it" orientation.
       this.mirror = !!(this.dataHandedness && this.dataHandedness.toLowerCase().startsWith('l'));
     }
 
-    // Merge captured + synth, prefer captured when it satisfies its own rule.
     const merged = {};
     let nCaptured = 0, nSynth = 0, nRejected = 0;
     for (const L of ALL_LETTERS) {
@@ -182,8 +163,6 @@ export class SignRenderer {
     this.queue = [];
     this.current = null;
   }
-
-  // ─── Internals ────────────────────────────────────────────────────────
 
   _applyMirror(letters, mirror) {
     const out = {};
@@ -271,9 +250,6 @@ export class SignRenderer {
     }
     ctx.clearRect(0, 0, w, h);
 
-    // Project to 2D, fitting the hand inside the canvas with padding. We use
-    // the unmirrored letterFrames extents (or the current frame) to keep
-    // scale stable across letters — otherwise a fist would zoom in.
     const ref = this._rawLetters?.B || this.currentLandmarks;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const p of ref) {
@@ -288,8 +264,6 @@ export class SignRenderer {
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
 
-    // MediaPipe's Y is already image-down (small y = top), which matches
-    // canvas Y, so no flip. Z used only for line/dot weight emphasis.
     const zMin = -0.08, zMax = 0.08;
     const project = (p) => ({
       x: (p.x - cx) * scale + w / 2,
@@ -297,7 +271,6 @@ export class SignRenderer {
       z: clamp((p.z - zMin) / (zMax - zMin), 0, 1),
     });
 
-    // Connections — drawn back-to-front by depth so closer ones overlap.
     const edges = CONNECTIONS.map(([a, b], i) => ({
       a, b, finger: _fingerByEdge[i],
       depth: (this.currentLandmarks[a].z + this.currentLandmarks[b].z) * 0.5,
@@ -310,17 +283,14 @@ export class SignRenderer {
       const colour = COLORS[e.finger] || COLORS.palm;
       const widthBase = e.finger === 'palm' ? 7 : 9;
       const width = widthBase * (0.7 + 0.6 * (1 - (pa.z + pb.z) * 0.5));
-      // Soft halo
       ctx.strokeStyle = colour + '33';
       ctx.lineWidth = width + 6;
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
-      // Main line
       ctx.strokeStyle = colour;
       ctx.lineWidth = width;
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
     }
 
-    // Joints / tips.
     const points = this.currentLandmarks.map((p, i) => ({
       i, p: project(p), depth: p.z,
     })).sort((u, v) => v.depth - u.depth);
@@ -339,9 +309,6 @@ export class SignRenderer {
     }
   }
 
-  // Diagnostic helper. window.__t2s.verify('A') returns the merged 21-point
-  // landmark array (post-mirror) for a letter, or the projected 2D points
-  // when ?2d is passed — useful from devtools when something looks off.
   verify(letter, mode) {
     const lm = this.letterFrames?.[letter.toUpperCase()];
     if (!lm) return null;
@@ -355,7 +322,6 @@ export class SignRenderer {
 function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
 function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
-// ─── Auto-wire on the TextToSign page ──────────────────────────────────────
 (async function autoInit() {
   if (typeof document === 'undefined') return;
   if (document.readyState === 'loading') {

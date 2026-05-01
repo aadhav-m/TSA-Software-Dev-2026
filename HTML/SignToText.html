@@ -4,7 +4,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SignFlow — Sign to Text</title>
+    <title>SignFlow</title>
     <link rel="stylesheet" href="/CSS/styles-sign.css">
 </head>
 <body>
@@ -19,60 +19,24 @@
         </div>
         <ul class="navbar_menu">
             <li class="navbar_item">
-                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">
-                    Home
-                </a>
+                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">Home</a>
             </li>
             <li class="navbar_item">
-                <a href="/HTML/TextToSign.html" style="text-decoration: none;" class="navbar_links">
-                    Text → Sign
-                </a>
+                <a href="/HTML/SpeechToText.html" style="text-decoration: none;" class="navbar_links">Speech-To-Text</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSign.html" style="text-decoration: none;" class="navbar_links">Text-To-Sign</a>
             </li>
         </ul>
     </header>
-
-    <main class="s2t-page">
-        <div class="page-head">
-            <h2>Sign Language → Text</h2>
-            <p class="lead">Show a hand sign to your camera and watch SignFlow transcribe it letter-by-letter, in real time.</p>
-        </div>
-
-        <div class="s2t-grid">
-            <!-- Camera panel -->
-            <section class="panel video-panel">
-                <div class="panel-head">
-                    <span class="panel-label">Camera</span>
-                    <span class="panel-hint">One hand, well-lit</span>
-                </div>
-                <div class="video-stage">
-                    <video class="video" id="video" autoplay playsinline muted></video>
-                </div>
-                <div class="video-controls">
-                    <button class="button-neon compact" id="startButton"><span>Start</span></button>
-                    <button class="button-neon compact" id="stopButton"><span>Stop</span></button>
-                </div>
-            </section>
-
-            <!-- Output panel -->
-            <section class="panel output-panel">
-                <div class="panel-head">
-                    <span class="panel-label">Translation</span>
-                    <button class="button-neon compact ghost" id="clearTranslation"><span>Clear</span></button>
-                </div>
-                <div class="big-letter-label">Current letter</div>
-                <div class="big-letter" id="translation-letter">—</div>
-                <div class="sentence-label">Sentence</div>
-                <div class="translation">
-                    <div id="translation-sentence">&nbsp;</div>
-                </div>
-                <ul class="hint-list">
-                    <li><strong>SPACE</strong> — open hand, thumb out</li>
-                    <li><strong>DELETE</strong> — closed fist, thumb down</li>
-                    <li><strong>J / Z</strong> — motion gestures (hold I or G then trace)</li>
-                </ul>
-            </section>
-        </div>
-    </main>
+    <video class="video" id="video" autoplay playsinline muted></video>
+    <button class="button-neon" id="startButton">Start Recording</button>
+    <button class="button-neon" id="stopButton">Stop Recording</button>
+    <button class="button-neon" id="clearTranslation" style="margin-top: -20px;">Reset Text Output</button>
+    <div class="translation">
+        <div id="translation-letter"></div>
+        <div id="translation-sentence"></div>
+    </div>
     <script type="module" src="/JS/sign.js"></script>
 </body>
 </html>
