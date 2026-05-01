@@ -7,7 +7,6 @@
     <title>SignFlow — Text to Sign</title>
     <link rel="stylesheet" href="/CSS/styles-sign.css">
     <link rel="stylesheet" href="/CSS/styles-textToSign.css">
-    <script src="https://js.puter.com/v2/"></script>
     <script src="/JS/speech.js" defer></script>
 </head>
 <body>
@@ -30,130 +29,23 @@
         </ul>
     </header>
 
-    <main class="t2s-page">
+    <main class="t2s-page minimal">
         <div class="page-head">
             <h2>Text → Sign Language</h2>
-            <p class="lead">Type a word, or record your voice and let it transcribe automatically. The 3D hand will spell it out in ASL fingerspelling.</p>
         </div>
 
         <div class="t2s-grid">
-            <!-- ─── INPUT panel ────────────────────────────────────────── -->
             <section class="panel input-panel">
-                <div class="panel-head">
-                    <span class="panel-label">1. Input</span>
-                    <span class="panel-hint">Type or record</span>
-                </div>
-
                 <textarea id="t2s-source" placeholder="Type a word or sentence…">HELLO</textarea>
-
-                <div class="voice-row">
-                    <button class="button-neon compact" id="startBtn"><span>● Record</span></button>
-                    <button class="button-neon compact" id="stopBtn" style="display:none;"><span>■ Stop</span></button>
-                    <span class="rec-status" id="rec-status">or upload audio →</span>
-                    <input type="file" id="audio-upload" accept="audio/*">
-                </div>
-                <button class="button-neon compact ghost" id="transcribe-btn"><span>Transcribe to text</span></button>
-
-                <div class="action-row">
-                    <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
-                    <button class="button-neon compact" id="t2s-stop"><span>Stop</span></button>
-                </div>
-
-                <p class="setup-note">
-                    First time? You need to capture your hand once →
-                    <a href="/HTML/CaptureLandmarks.html">Run capture</a>
-                </p>
+                <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
             </section>
 
-            <!-- ─── OUTPUT panel ───────────────────────────────────────── -->
             <section class="panel output-panel">
-                <div class="panel-head">
-                    <span class="panel-label">2. Output</span>
-                    <label class="t2s-mirror">
-                        <input type="checkbox" id="t2s-mirror">
-                        Mirror hand
-                    </label>
-                </div>
                 <canvas id="t2s-canvas" class="t2s-canvas" width="480" height="400"></canvas>
-                <div class="t2s-status" id="t2s-status">Initialising…</div>
             </section>
         </div>
     </main>
 
     <script type="module" src="/JS/textToSign/signRenderer.js"></script>
-
-    <script>
-        // Voice → text pipeline. The textarea is the single source of truth;
-        // both typing and transcription feed into it. The Sign It button is
-        // wired by signRenderer.js (auto-init on #t2s-canvas).
-
-        let rec, blob, chunks = [];
-        const startBtn      = document.getElementById('startBtn');
-        const stopBtn       = document.getElementById('stopBtn');
-        const recStatus     = document.getElementById('rec-status');
-        const audioUpload   = document.getElementById('audio-upload');
-        const transcribeBtn = document.getElementById('transcribe-btn');
-        const sourceEl      = document.getElementById('t2s-source');
-
-        startBtn.addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                rec = new MediaRecorder(stream);
-                chunks = [];
-                rec.ondataavailable = (e) => chunks.push(e.data);
-                rec.onstop = () => {
-                    blob = new Blob(chunks, { type: 'audio/webm' });
-                    stream.getTracks().forEach((t) => t.stop());
-                    recStatus.textContent = 'Recorded ✓ — click Transcribe';
-                };
-                rec.start();
-                recStatus.textContent = 'Recording…';
-                startBtn.style.display = 'none';
-                stopBtn.style.display  = 'inline-flex';
-            } catch (err) {
-                alert('Microphone access denied: ' + err.message);
-            }
-        });
-
-        stopBtn.addEventListener('click', () => {
-            rec?.stop();
-            startBtn.style.display = 'inline-flex';
-            stopBtn.style.display  = 'none';
-        });
-
-        audioUpload.addEventListener('change', () => {
-            if (audioUpload.files[0]) recStatus.textContent = `${audioUpload.files[0].name} ✓ — click Transcribe`;
-        });
-
-        transcribeBtn.addEventListener('click', async () => {
-            const audioSource = audioUpload.files[0] ? audioUpload.files[0] : blob;
-            if (!audioSource) {
-                recStatus.textContent = 'Record or upload audio first';
-                return;
-            }
-            if (!(await puter.auth.isSignedIn())) await puter.auth.signIn();
-
-            const orig = transcribeBtn.querySelector('span').textContent;
-            transcribeBtn.querySelector('span').textContent = 'Transcribing…';
-            transcribeBtn.disabled = true;
-            try {
-                const result = await puter.ai.speech2txt(audioSource);
-                const text = typeof result?.text === 'string' ? result.text
-                            : typeof result === 'string'      ? result
-                            : '';
-                if (text.trim() !== '') {
-                    sourceEl.value = text;
-                    recStatus.textContent = 'Transcribed ✓ — click Sign It';
-                } else {
-                    recStatus.textContent = 'No speech detected.';
-                }
-            } catch (err) {
-                recStatus.textContent = 'Error: ' + err.message;
-            } finally {
-                transcribeBtn.querySelector('span').textContent = orig;
-                transcribeBtn.disabled = false;
-            }
-        });
-    </script>
 </body>
 </html>
