@@ -1,29 +1,12 @@
-// Classifier-derived synthetic landmarks. Used as a fallback / sanity layer
-// when a captured letter from asl_letters.json doesn't satisfy the rule for
-// its letter in JS/sign.js classify(). Each pose is hand-authored to satisfy
-// its corresponding classify branch by construction, so we don't need to
-// import classify() itself.
-//
-// Conventions match MediaPipe worldLandmarks:
-//   - Y-down (finger pointing UP = negative Y)
-//   - units ≈ meters from wrist
-//   - palm faces -Z (toward camera); curled fingers fold to +Z (palm side)
-//   - landmark indices 0..20 follow the standard MediaPipe topology
-
-// ─── Canonical anchors (matches scale of captured asl_letters.json) ────────
-// Wrist sits below origin (since fingers point up = -Y).
 const WRIST = [0.000, +0.090, 0.000];
 
-// Knuckles (MCPs) — base of each finger on the palm.
 const MCP_INDEX  = [+0.025, 0.000, 0.000];
 const MCP_MIDDLE = [+0.005, -0.005, 0.000];
 const MCP_RING   = [-0.020, 0.000, 0.000];
 const MCP_PINKY  = [-0.042, +0.012, 0.000];
 
-// Thumb base (CMC, the "wrist" of the thumb).
 const THUMB_CMC  = [+0.015, +0.072, -0.005];
 
-// Per-finger lengths (proximal, middle, distal segments).
 const LEN = {
   index:  [0.040, 0.025, 0.020],
   middle: [0.045, 0.027, 0.022],
@@ -31,27 +14,15 @@ const LEN = {
   pinky:  [0.030, 0.020, 0.018],
 };
 
-// ─── Finger primitives ─────────────────────────────────────────────────────
-// Each returns 4 points: MCP, PIP, DIP, tip. State controls bend.
-//
-// "ext"   fully extended, pointing up
-// "mid"   bent ~45° at PIP (X / C / hooked)
-// "crl"   fully curled into a fist
-// "hookL" extended but slightly bent (for letters where finger curves)
-
 function _fingerExtended(mcp, lengths, spreadDeg = 0) {
-  // Direction tilted slightly away from neutral by spreadDeg around Z axis,
-  // and tipped slightly forward (-Z) so fingers don't sit perfectly flat.
   const a = (spreadDeg * Math.PI) / 180;
   const dx = Math.sin(a);
   const dy = -Math.cos(a);
-  const dz = -0.05; // slight forward tilt
+  const dz = -0.05;
   return _walk(mcp, [dx, dy, dz], lengths, [0, 0, 0]);
 }
 
 function _fingerCurled(mcp, lengths, spreadDeg = 0) {
-  // PIP bends ~95°, DIP ~90°, tip rolls slightly. Curl is around the X axis,
-  // bringing the tip back toward and past the MCP at +Z (palm-front).
   const a = (spreadDeg * Math.PI) / 180;
   const dx = Math.sin(a);
   const dy = -Math.cos(a);
@@ -66,16 +37,12 @@ function _fingerMid(mcp, lengths, spreadDeg = 0) {
 }
 
 function _fingerHook(mcp, lengths, spreadDeg = 0) {
-  // For X: tip bends sharply but base stays nearly extended.
   const a = (spreadDeg * Math.PI) / 180;
   const dx = Math.sin(a);
   const dy = -Math.cos(a);
   return _walk(mcp, [dx, dy, -0.05], lengths, [25, 70, 60]);
 }
 
-// March along a finger applying segment-by-segment bend around the X axis.
-// `dir0` is the proximal direction (will be normalized).
-// `bends` is an array of degrees [PIP, DIP, tip].
 function _walk(mcp, dir0, lengths, bends) {
   const norm = _norm(dir0);
   let d = norm.slice();
@@ -84,8 +51,6 @@ function _walk(mcp, dir0, lengths, bends) {
   for (let i = 0; i < 3; i++) {
     p = [p[0] + d[0] * lengths[i], p[1] + d[1] * lengths[i], p[2] + d[2] * lengths[i]];
     points.push(p.slice());
-    // Rotate direction around X axis: y' = y cos − z sin, z' = y sin + z cos.
-    // Positive angle bends finger forward (+Z) — into the palm.
     const a = (bends[i] * Math.PI) / 180;
     const ny = d[1] * Math.cos(a) - d[2] * Math.sin(a);
     const nz = d[1] * Math.sin(a) + d[2] * Math.cos(a);
@@ -99,9 +64,6 @@ function _norm(v) {
   return [v[0] / m, v[1] / m, v[2] / m];
 }
 
-// ─── Thumb primitives ──────────────────────────────────────────────────────
-// Thumb has 4 points: CMC (1), MCP (2), IP (3), tip (4).
-
 function _thumbSide()      { return _thumb([+0.040, -0.020, -0.010], [+0.040, -0.020, +0.000]); }
 function _thumbAcross()    { return _thumb([+0.020, -0.005, +0.025], [-0.005, -0.005, +0.030]); }
 function _thumbUp()        { return _thumb([-0.005, -0.030, -0.005], [-0.010, -0.030, -0.010]); }
@@ -111,8 +73,6 @@ function _thumbBetween()   { return _thumb([+0.015, +0.005, +0.020], [+0.005, +0
 function _thumbTucked()    { return _thumb([+0.018, -0.010, +0.005], [+0.012, -0.020, +0.020]); }
 
 function _thumb(midDelta, tipDelta) {
-  // CMC (point 1) is fixed; MCP (2) is the joint at the base of the thumb;
-  // IP (3) and tip (4) are derived from deltas.
   const cmc = THUMB_CMC.slice();
   const mcp = [cmc[0] + 0.025, cmc[1] - 0.020, cmc[2] - 0.005];
   const ip  = [mcp[0] + midDelta[0], mcp[1] + midDelta[1], mcp[2] + midDelta[2]];
@@ -120,55 +80,39 @@ function _thumb(midDelta, tipDelta) {
   return [cmc, mcp, ip, tip];
 }
 
-// ─── Letter spec ───────────────────────────────────────────────────────────
-// Each entry is { I, M, R, P, T, [spread] }, where:
-//   I, M, R, P: 'ext' | 'mid' | 'crl' | 'hook'
-//   T: thumb pose name
-//   spread: optional [iSpread, mSpread, rSpread, pSpread] in degrees
-//           (positive = away from middle finger)
-
 const LETTERS = {
-  // ── All-extended (B) and base poses ─────────────────────────────────────
   B: { I: 'ext', M: 'ext', R: 'ext', P: 'ext', T: 'tucked' },
 
-  // ── All-curled (A, S, M, N, T, E) ───────────────────────────────────────
-  // Differ by thumb position.
-  A: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'side'    }, // thumb to right
-  S: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across'  }, // thumb across front
-  T: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'between' }, // thumb between I/M
-  M: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across', _thumbDeep: true  }, // thumb under 3 fingers
-  N: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across', _thumbDeepN: true }, // thumb under 2 fingers
-  E: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'tucked'  }, // tips near thumb
+  A: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'side'    },
+  S: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across'  },
+  T: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'between' },
+  M: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across', _thumbDeep: true  },
+  N: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across', _thumbDeepN: true },
+  E: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'tucked'  },
 
-  // ── Single finger up ────────────────────────────────────────────────────
-  D: { I: 'ext', M: 'mid', R: 'mid', P: 'crl', T: 'tucked'  }, // index up, others form O
-  L: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'out'     }, // index + thumb at 90°
-  I: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  }, // pinky only
-  J: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  }, // J end pose ≈ I (motion TODO)
-  Y: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'out'     }, // pinky + thumb out
-  X: { I: 'hook', M: 'crl', R: 'crl', P: 'crl', T: 'tucked' }, // hooked index
+  D: { I: 'ext', M: 'mid', R: 'mid', P: 'crl', T: 'tucked'  },
+  L: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'out'     },
+  I: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  },
+  J: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  },
+  Y: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'out'     },
+  X: { I: 'hook', M: 'crl', R: 'crl', P: 'crl', T: 'tucked' },
 
-  // ── Two fingers up (U, R, V, W, K, F) ───────────────────────────────────
   U: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [0, 0, 0, 0] },
-  R: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [3, -3, 0, 0] }, // crossed
-  V: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [-15, 15, 0, 0] }, // wide spread
+  R: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [3, -3, 0, 0] },
+  V: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [-15, 15, 0, 0] },
   W: { I: 'ext', M: 'ext', R: 'ext', P: 'crl', T: 'tucked', spread: [-12, 0, 12, 0] },
-  K: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'up', spread: [-25, 5, 0, 0] }, // index angled, thumb up
+  K: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'up', spread: [-25, 5, 0, 0] },
   F: { I: 'crl', M: 'ext', R: 'ext', P: 'ext', T: 'tucked', _indexThumbCircle: true },
 
-  // ── Sideways pointing (G, H, P, Q) — rotate the whole hand 90° CW ───────
   G: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
   H: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
   P: { I: 'ext', M: 'mid', R: 'crl', P: 'crl', T: 'down',    _sideways: true },
   Q: { I: 'ext', M: 'mid', R: 'crl', P: 'crl', T: 'down',    _sideways: true, _down: true },
-  Z: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true }, // Z end pose ≈ G (motion TODO)
+  Z: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
 
-  // ── Curved (C) and circle (O) ───────────────────────────────────────────
   C: { I: 'mid', M: 'mid', R: 'mid', P: 'mid', T: 'out', _cShape: true },
   O: { I: 'mid', M: 'mid', R: 'mid', P: 'mid', T: 'tucked', _oShape: true },
 };
-
-// ─── Builder ───────────────────────────────────────────────────────────────
 
 const FINGER_FN = {
   ext:  _fingerExtended,
@@ -198,7 +142,6 @@ export function synthesize(letter) {
   const pky = FINGER_FN[spec.P](MCP_PINKY,  LEN.pinky,  sp[3]);
   const thb = THUMB_FN[spec.T]();
 
-  // 21-point assembly in MediaPipe order.
   let lm = [
     WRIST,
     thb[0], thb[1], thb[2], thb[3],
@@ -208,11 +151,9 @@ export function synthesize(letter) {
     pky[0], pky[1], pky[2], pky[3],
   ];
 
-  // Per-letter tweaks.
-  if (spec._sideways) lm = _rotateZ(lm, -75);   // tilt hand toward index direction
-  if (spec._down)     lm = _translate(lm, [0.02, +0.03, 0]); // Q dips lower than G
+  if (spec._sideways) lm = _rotateZ(lm, -75);
+  if (spec._down)     lm = _translate(lm, [0.02, +0.03, 0]);
   if (spec._cShape) {
-    // C — pull all fingertips toward thumb tip to form a half-curve.
     const t = thb[3];
     for (const i of [8, 12, 16, 20]) {
       lm[i] = [
@@ -223,7 +164,6 @@ export function synthesize(letter) {
     }
   }
   if (spec._oShape) {
-    // O — fingertips form a circle very close to thumb tip.
     const t = thb[3];
     for (const i of [8, 12, 16, 20]) {
       lm[i] = [
@@ -234,23 +174,19 @@ export function synthesize(letter) {
     }
   }
   if (spec._indexThumbCircle) {
-    // F — index tip touches thumb tip; thumb pulls in slightly.
     const t = thb[3];
     lm[8] = [t[0], t[1], t[2]];
     lm[7] = [(t[0] + lm[6][0]) / 2, (t[1] + lm[6][1]) / 2, (t[2] + lm[6][2]) / 2];
   }
   if (spec._thumbDeep) {
-    // M — thumb tucked deep under three fingers.
     lm[4] = [-0.008, +0.030, +0.030];
     lm[3] = [+0.005, +0.020, +0.025];
   }
   if (spec._thumbDeepN) {
-    // N — thumb tucked under two fingers.
     lm[4] = [+0.012, +0.030, +0.030];
     lm[3] = [+0.018, +0.020, +0.020];
   }
 
-  // Convert from arrays to {x,y,z} for compatibility with the renderer.
   return lm.map(([x, y, z]) => ({ x, y, z }));
 }
 
@@ -263,10 +199,6 @@ function _rotateZ(landmarks, deg) {
 function _translate(landmarks, [dx, dy, dz]) {
   return landmarks.map(([x, y, z]) => [x + dx, y + dy, z + dz]);
 }
-
-// ─── Validator: cheap classifier-rule check on a captured 21-pt array ─────
-// Returns true if the captured pose plausibly matches its letter under the
-// same rule the recogniser uses. Mirrors a subset of classify() in sign.js.
 
 export function validateAgainstClassifier(letter, lm) {
   if (!lm || lm.length !== 21) return false;
@@ -286,8 +218,6 @@ export function validateAgainstClassifier(letter, lm) {
   const ext = (c) => c > 150;
   const crl = (c) => c < 120;
   const L = letter.toUpperCase();
-  // Loose checks: just verify the dominant finger states. Anything stricter
-  // would reject many legitimate captures because of natural noise.
   const rule = {
     A: () => crl(IC) && crl(MC) && crl(RC) && crl(PC),
     B: () => ext(IC) && ext(MC) && ext(RC) && ext(PC),

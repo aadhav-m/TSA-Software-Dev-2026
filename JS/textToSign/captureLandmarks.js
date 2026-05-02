@@ -1,18 +1,8 @@
-// One-time capture utility. Cycles A→Z, records MediaPipe worldLandmarks
-// per letter, then offers a JSON download. Drop the result into
-// /Assets/asl_letters.json so signRenderer.js can read it.
-//
-// J and Z capture the END pose only — animating the motion path is a TODO
-// in poseHand.js.
-
 import {
   FilesetResolver,
   HandLandmarker,
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
-// Inlined here (rather than imported from poseHand.js) so the capture page
-// has no transitive three.js dependency — capture doesn't render anything
-// 3D and we don't want to require an import map on this page.
 const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 const STATIC_END_POSE_LETTERS = ['J', 'Z'];
 
@@ -35,9 +25,6 @@ let idx = 0;
 const captured = {};
 let detectedHandedness = null;
 
-// Modules are deferred — by the time we get here the DOM is parsed, so
-// no DOMContentLoaded gate is needed (and using one here is unreliable
-// because DCL may have already fired by the time this code runs).
 init().catch((err) => {
   console.error('[captureLandmarks] init failed:', err);
   const s = document.getElementById('cap-status');
@@ -81,7 +68,6 @@ async function init() {
   els['cap-retry'].addEventListener('click', retry);
   els['cap-download'].addEventListener('click', download);
 
-  // Mobile-menu toggle parity with the rest of the site.
   const toggle = els['mobile-menu'];
   const menu = document.querySelector('.navbar_menu');
   if (toggle && menu) {
@@ -90,7 +76,6 @@ async function init() {
       toggle.classList.toggle('active');
     });
   }
-  // Match the neon button hue animation used by other pages.
   document.querySelectorAll('.button-neon').forEach((btn) => {
     btn.style.setProperty('--pulse-speed', `${3.5 + Math.random() * 1.5}s`);
     (function spin() {

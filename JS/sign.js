@@ -51,7 +51,7 @@ let prevPinky = null;
 let prevIndex = null;
 
 function renderSentence() {
-  sentenceDiv.textContent = sentenceChars.join("") || "\u00a0";
+  sentenceDiv.textContent = sentenceChars.join("") || " ";
 }
 
 function setupCanvas() {
@@ -308,9 +308,6 @@ function commit(letter) {
   renderSentence();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CLASSIFIER — all thresholds derived from real captured debug data
-// ─────────────────────────────────────────────────────────────────────────────
 function classify(lm) {
   const lx = (i) => lm[i].x;
   const ly = (i) => lm[i].y;
@@ -343,7 +340,6 @@ function classify(lm) {
   const RC = curl(13, 14, 15, 16);
   const PC = curl(17, 18, 19, 20);
 
-  // From real data: extended = 165–179, curled = 88–115, mid = 120–150
   const EXT = 150;
   const CRL = 120;
 
@@ -357,182 +353,102 @@ function classify(lm) {
   const rCrl = RC < CRL;
   const pCrl = PC < CRL;
 
-  // Mid-bent: between CRL and EXT
   const iMid = !iExt && !iCrl;
   const mMid = !mExt && !mCrl;
 
-  // Palm-normalised tip distances
   const t_i = n3(4, 8);
   const t_m = n3(4, 12);
   const t_r = n3(4, 16);
   const t_p = n3(4, 20);
   const i_m = n3(8, 12);
 
-  // 2D tip spread
   const imGap = n2(8, 12);
   const mrGap = n2(12, 16);
 
-  // Tip Y relative to MCP, palm-normalised. Negative = tip above base = pointing up.
-  // From data: extended upward = -0.69 to -1.00 | drooping/curled = +0.10 to +0.40
   const iRelY = (ly(8)  - ly(5))  / palm;
   const mRelY = (ly(12) - ly(9))  / palm;
   const rRelY = (ly(16) - ly(13)) / palm;
   const pRelY = (ly(20) - ly(17)) / palm;
 
-  // Tip X relative to MCP, palm-normalised. Positive = tip to the right of base.
   const iRelX = (lx(8) - lx(5)) / palm;
 
-  // Thumb position relative to landmark 2 (thumb base), palm-normalised
   const thumbRelX = (lx(4) - lx(2)) / palm;
   const thumbRelY = (ly(4) - ly(2)) / palm;
 
-  // Index finger direction vector (MCP→tip), unit-normalised
   const iDirX  = lx(8) - lx(5);
   const iDirY  = ly(8) - ly(5);
   const iDirMag = Math.sqrt(iDirX*iDirX + iDirY*iDirY) || 0.0001;
   const iDirYn  = iDirY / iDirMag;
 
-  // Middle finger direction Y component, normalised
   const mDirY   = ly(12) - ly(9);
   const mDirX   = lx(12) - lx(9);
   const mDirMag = Math.sqrt(mDirX*mDirX + mDirY*mDirY) || 0.0001;
   const mDirYn  = mDirY / mDirMag;
 
-  // ── SPACE ─────────────────────────────────────────────────────────────────
-  // All fingers extended + thumb clearly out to the side (open hand)
   if (iExt && mExt && rExt && pExt && thumbRelX > 0.8) return "SPACE";
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
-  // All fingers curled, thumb pointing downward
   if (iCrl && mCrl && rCrl && pCrl && thumbRelY > 0.5) return "DELETE";
 
-  // ── B ─────────────────────────────────────────────────────────────────────
-  // All 4 fingers fully extended upward, thumb tucked (not out to side)
-  // Data: IC=171, MC=173, RC=174, PC=179, iRelY=-0.69, thumbRelX=-0.06
   if (iExt && mExt && rExt && pExt
       && iRelY < -0.5 && mRelY < -0.5
       && Math.abs(thumbRelX) < 0.35) return "B";
 
-  // ── W ─────────────────────────────────────────────────────────────────────
-  // Index + middle + ring extended with spread, pinky curled
   if (iExt && mExt && rExt && !pExt && imGap > 0.15 && mrGap > 0.15) return "W";
 
-  // ── Two fingers up: U / R / V / K / H / P ────────────────────────────────
   if (iExt && mExt && !rExt && !pExt) {
 
-    // H: index pointing strongly sideways (horizontal)
-    // Data: H iRelX=1.28, iDirYn=0.12 — clearly horizontal, both fingers sideways
     if (iRelX > 0.8 && Math.abs(iDirYn) < 0.4) return "H";
 
-    // R: both fingers pointing straight up, very close together (crossed)
-    // Data: R iRelY=-0.87, mRelY=-0.91, imGap=0.108
-    // U has imGap=0.196, so 0.13 is a clean dividing line
     if (iRelY < -0.5 && mRelY < -0.5 && imGap < 0.13) return "R";
 
-    // U: both fingers up, together but not crossed
-    // Data: U iRelY=-0.78, mRelY=-0.91, imGap=0.196
     if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.13 && imGap < 0.30) return "U";
 
-    // V: both fingers up, spread apart
-    // Data: V iRelY=-0.87, mRelY=-1.00, imGap=0.386
     if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.30) return "V";
 
-    // K: index diagonal, middle up, thumb up — imGap large, iRelX noticeable
-    // Data: K iRelY=-0.46, mRelY=-0.85, iRelX=0.52, imGap=0.468, thumbRelY=-0.50
     if (mRelY < -0.5 && iRelX > 0.3 && imGap > 0.30 && thumbRelY < -0.35) return "K";
 
-    // P: index sideways, middle drooping downward
-    // Data: P iRelY=-0.09, mRelY=+0.83, iRelX=0.71
     if (iRelX > 0.5 && mRelY > 0.5) return "P";
   }
 
-  // ── L ─────────────────────────────────────────────────────────────────────
-  // Index strongly up, rest curled, thumb out to the right
-  // Data: L iRelY=-1.00, MC=84 (crl), thumbRelX=+0.51
   if (iExt && mCrl && rCrl && iRelY < -0.7 && thumbRelX > 0.35) return "L";
 
-  // ── D ─────────────────────────────────────────────────────────────────────
-  // Index fully up, middle/ring make a circle with thumb (but not curled tight)
-  // Data: D IC=175, MC=124 (mid), RC=125 (mid), imGap=0.976 (huge), t_m=0.252, t_r=0.175
-  // The "O" shape of middle+ring+thumb is the key: t_m and t_r small while index is fully up
   if (iExt && !mExt && iRelY < -0.6 && imGap > 0.7 && t_m < 0.30 && t_r < 0.25) return "D";
 
-  // ── G ─────────────────────────────────────────────────────────────────────
-  // Index pointing sideways, all others curled
-  // Data: G IC=176 (ext), mCrl (MC=101), iRelX=0.92, iRelY=0.036 (flat/horizontal)
   if (iExt && mCrl && rCrl && pCrl && iRelX > 0.7 && Math.abs(iRelY) < 0.25) return "G";
 
-  // ── Q ─────────────────────────────────────────────────────────────────────
-  // Index pointing sideways but not fully extended (IC=165), middle drooping
-  // Data: Q IC=165, iRelX=0.69, iRelY=-0.057, mRelY=+0.76
   if (iExt && !mExt && iRelX > 0.5 && iRelY > -0.2 && mRelY > 0.5) return "Q";
 
-  // ── X ─────────────────────────────────────────────────────────────────────
-  // Index hooked (mid-bent), others curled, tip still above MCP level
-  // Data: X IC=132 (mid), MC=99 (crl), iRelY=-0.56, imGap=0.892
   if (iMid && mCrl && rCrl && pCrl && iRelY < -0.3 && imGap > 0.5) return "X";
 
-  // ── C ─────────────────────────────────────────────────────────────────────
-  // All fingers curved into C — all mid-bent, hand angled sideways, tips close
-  // Data: C IC=134, MC=120, RC=123, PC=138 — all mid-range
-  // iRelX=0.45, imGap=0.059, iRelY=-0.26
   if (iMid && mMid && !iExt && !mExt && !rExt && !pExt
       && iRelX > 0.3 && imGap < 0.12 && iRelY < -0.1 && iRelY > -0.5) return "C";
 
-  // ── F ─────────────────────────────────────────────────────────────────────
-  // Middle/ring/pinky extended up, index tip touches thumb tip
-  // Data: F MC=172, RC=175, PC=178, t_i=0.098, mRelY=-0.82
   if (!iExt && mExt && rExt && pExt && t_i < 0.15 && mRelY < -0.5) return "F";
 
-  // ── Y ─────────────────────────────────────────────────────────────────────
-  // Only pinky extended, thumb out — index/middle/ring curled
-  // Data: Y PC=172, IC=92, MC=92, RC=94, pRelY=-0.90, thumbRelY=-0.76
   if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5 && thumbRelY < -0.4) return "Y";
 
-  // ── I ─────────────────────────────────────────────────────────────────────
-  // Only pinky extended, thumb neutral
   if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5) return "I";
 
-  // ── All-curled group: O / E / T / M / N / S / A ──────────────────────────
   if (!iExt && !mExt && !rExt && !pExt) {
 
-    // O: all fingertips forming a circle close to thumb — all t_x small, imGap tiny
-    // Data: O t_i=0.167, t_m=0.149, t_r=0.146, t_p=0.187, imGap=0.035
     if (t_i < 0.22 && t_m < 0.22 && t_r < 0.22 && imGap < 0.10) return "O";
 
-    // E: all fingers curled, tips hovering near (but not quite touching) thumb
-    // Data: E IC=98, MC=94, RC=90, PC=92, t_i=0.146, t_m=0.157, iRelY≈0
-    // All curls ~90–100, tips near thumb, fingers roughly level with knuckles
     if (IC < 115 && MC < 115 && RC < 115 && PC < 115
         && t_i < 0.20 && t_m < 0.20 && Math.abs(iRelY) < 0.15) return "E";
 
-    // T: thumb pushes up between index and middle, index hooks forward
-    // Data: T IC=107, thumbRelY=-0.83 (thumb strongly UP), t_i=0.490, iRelY=-0.06
-    // Key signature: thumbRelY very negative (thumb pointing up) in a curled fist
     if (IC < 120 && MC < 120 && thumbRelY < -0.65 && t_i < 0.60 && Math.abs(iRelY) < 0.20) return "T";
 
-    // M: thumb tucked under index+middle+ring, 3 fingers droop over it
-    // Data: M IC=107, MC=103, RC=97, PC=111, iRelY=+0.25, mRelY=+0.27
-    // t_m=0.598, t_r=0.432 — thumb is reaching across under middle/ring
     if (IC < 120 && MC < 120 && RC < 120 && PC < 120
         && iRelY > 0.10 && mRelY > 0.10
         && t_m < 0.70 && t_r < 0.55 && t_p > 0.50) return "M";
 
-    // N: thumb under index+middle only, ring/pinky not covered
-    // Data: N IC=104, MC=97, t_m=0.468, t_r=0.782 (thumb doesn't reach ring)
     if (IC < 120 && MC < 120 && RC < 120 && PC < 120
         && iRelY > 0.05 && mRelY > 0.05
         && t_m < 0.55 && t_r > 0.60) return "N";
 
-    // S: closed fist, thumb wraps across front of fingers
-    // Data: S IC=101, MC=94, RC=89, PC=90, t_i=0.281, thumbRelX=-0.22
-    // Thumb is centered/slightly left — not to the right like A
     if (IC < 115 && MC < 115 && RC < 115 && PC < 115
         && t_i < 0.35 && thumbRelX > -0.40 && thumbRelX < 0.15) return "S";
 
-    // A: fist with thumb resting to the side (not over fingers)
-    // Data: A IC=101, MC=99, RC=97, PC=97, thumbRelX=+0.189, t_i=0.600
-    // Thumb clearly to the right side, not touching index tip
     if (IC < 120 && MC < 120 && RC < 120 && PC < 120
         && thumbRelX > 0.10 && t_i > 0.45) return "A";
   }
