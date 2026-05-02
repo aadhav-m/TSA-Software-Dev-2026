@@ -18,7 +18,7 @@ function _fingerExtended(mcp, lengths, spreadDeg = 0) {
   const a = (spreadDeg * Math.PI) / 180;
   const dx = Math.sin(a);
   const dy = -Math.cos(a);
-  const dz = -0.05; // slight forward tilt
+  const dz = -0.05;
   return _walk(mcp, [dx, dy, dz], lengths, [0, 0, 0]);
 }
 
@@ -51,8 +51,6 @@ function _walk(mcp, dir0, lengths, bends) {
   for (let i = 0; i < 3; i++) {
     p = [p[0] + d[0] * lengths[i], p[1] + d[1] * lengths[i], p[2] + d[2] * lengths[i]];
     points.push(p.slice());
-    // Rotate direction around X axis: y' = y cos − z sin, z' = y sin + z cos.
-    // Positive angle bends finger forward (+Z) — into the palm.
     const a = (bends[i] * Math.PI) / 180;
     const ny = d[1] * Math.cos(a) - d[2] * Math.sin(a);
     const nz = d[1] * Math.sin(a) + d[2] * Math.cos(a);
@@ -92,25 +90,25 @@ const LETTERS = {
   N: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'across', _thumbDeepN: true },
   E: { I: 'crl', M: 'crl', R: 'crl', P: 'crl', T: 'tucked'  },
 
-  D: { I: 'ext', M: 'mid', R: 'mid', P: 'crl', T: 'tucked'  }, 
-  L: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'out'     }, 
-  I: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  }, 
-  J: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  }, 
-  Y: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'out'     }, 
-  X: { I: 'hook', M: 'crl', R: 'crl', P: 'crl', T: 'tucked' }, 
+  D: { I: 'ext', M: 'mid', R: 'mid', P: 'crl', T: 'tucked'  },
+  L: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'out'     },
+  I: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  },
+  J: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'tucked'  },
+  Y: { I: 'crl', M: 'crl', R: 'crl', P: 'ext', T: 'out'     },
+  X: { I: 'hook', M: 'crl', R: 'crl', P: 'crl', T: 'tucked' },
 
   U: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [0, 0, 0, 0] },
-  R: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [3, -3, 0, 0] }, 
-  V: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [-15, 15, 0, 0] }, 
+  R: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [3, -3, 0, 0] },
+  V: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', spread: [-15, 15, 0, 0] },
   W: { I: 'ext', M: 'ext', R: 'ext', P: 'crl', T: 'tucked', spread: [-12, 0, 12, 0] },
-  K: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'up', spread: [-25, 5, 0, 0] }, 
+  K: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'up', spread: [-25, 5, 0, 0] },
   F: { I: 'crl', M: 'ext', R: 'ext', P: 'ext', T: 'tucked', _indexThumbCircle: true },
 
   G: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
   H: { I: 'ext', M: 'ext', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
   P: { I: 'ext', M: 'mid', R: 'crl', P: 'crl', T: 'down',    _sideways: true },
   Q: { I: 'ext', M: 'mid', R: 'crl', P: 'crl', T: 'down',    _sideways: true, _down: true },
-  Z: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true }, 
+  Z: { I: 'ext', M: 'crl', R: 'crl', P: 'crl', T: 'tucked', _sideways: true },
 
   C: { I: 'mid', M: 'mid', R: 'mid', P: 'mid', T: 'out', _cShape: true },
   O: { I: 'mid', M: 'mid', R: 'mid', P: 'mid', T: 'tucked', _oShape: true },

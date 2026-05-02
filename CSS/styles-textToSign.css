@@ -132,6 +132,36 @@
   box-shadow: 0 0 14px rgba(42,191,176,0.25);
 }
 
+/* Speed slider — sits between the textarea and the Sign It button. Wired
+   automatically by signRenderer.js's auto-init when #t2s-speed is present. */
+.t2s-speed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: #7A6F68;
+  letter-spacing: 0.5px;
+}
+.t2s-speed-row label {
+  flex: 0 0 auto;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #C45020;
+}
+.t2s-speed-row input[type="range"] {
+  flex: 1 1 auto;
+  accent-color: #C45020;
+  height: 4px;
+}
+.t2s-speed-value {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+  text-align: right;
+  color: #C45020;
+  font-weight: 600;
+}
+
 .voice-row {
   display: flex;
   align-items: center;

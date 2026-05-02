@@ -29,6 +29,12 @@
             <li class="navbar_item">
                 <a href="/HTML/SignToText.html" style="text-decoration: none;" class="navbar_links">Sign-To-Text</a>
             </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSpeech.html" style="text-decoration: none;" class="navbar_links">Text → Speech</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/Conversation.html" style="text-decoration: none;" class="navbar_links">Conversation</a>
+            </li>
         </ul>
     </header>
 
@@ -40,15 +46,28 @@
         <div class="t2s-grid">
             <section class="panel input-panel">
                 <textarea id="t2s-source" placeholder="Type a word or sentence…">HELLO</textarea>
+                <div class="t2s-speed-row">
+                    <label for="t2s-speed">Speed</label>
+                    <input type="range" id="t2s-speed" min="0.25" max="1" step="0.05" value="1">
+                    <span class="t2s-speed-value" id="t2s-speed-value">1×</span>
+                </div>
                 <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
             </section>
 
             <section class="panel output-panel">
-                <canvas id="t2s-canvas" class="t2s-canvas" width="480" height="400"></canvas>
+                <canvas id="t2s-canvas" class="t2s-canvas"></canvas>
             </section>
         </div>
     </main>
 
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+    </script>
     <script type="module" src="/JS/textToSign/signRenderer.js"></script>
 </body>
 </html>

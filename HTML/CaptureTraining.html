@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignFlow — Training Capture (DEV)</title>
+    <link rel="stylesheet" href="/CSS/styles-sign.css">
+    <link rel="stylesheet" href="/CSS/styles-textToSign.css">
+    <style>
+        /* Page-local additions for the per-letter sample counter and the
+           progress grid that shows N/5 per letter instead of a single tick. */
+        .train-counter {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            color: #7A6F68;
+            text-align: center;
+            margin-top: -8px;
+        }
+        .train-counter strong {
+            color: #C45020;
+            font-weight: 700;
+        }
+        .cap-cell .train-progress {
+            position: absolute;
+            bottom: 1px;
+            right: 2px;
+            font-size: 0.55rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #FAF7F4;
+            background: rgba(196, 80, 32, 0.85);
+            padding: 0 3px;
+            border-radius: 3px;
+            line-height: 1.3;
+        }
+        .cap-cell {
+            position: relative;
+        }
+        .cap-cell.partial {
+            background: linear-gradient(135deg, #F2EDE8, #E8845A);
+            color: #1E1A17;
+        }
+        .train-banner {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: #FAF7F4;
+            background: linear-gradient(135deg, #C45020, #E8845A);
+            padding: 4px 14px;
+            border-radius: 999px;
+            display: inline-block;
+            margin: 6px auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>
+            <a href="/HTML/index.html" style="text-decoration: none;">SignFlow</a>
+        </h1>
+        <div class="navbar_toggle" id="mobile-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="navbar_menu">
+            <li class="navbar_item">
+                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">Home</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/SignToText.html" style="text-decoration: none;" class="navbar_links">Sign → Text</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSign.html" style="text-decoration: none;" class="navbar_links">Text → Sign</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/CaptureLandmarks.html" style="text-decoration: none;" class="navbar_links">Capture (1×)</a>
+            </li>
+        </ul>
+    </header>
+
+    <div class="cap-wrapper">
+        <span class="train-banner">Dev tool · training capture</span>
+        <h2 style="font-family:'Outfit',sans-serif;font-size:1.6rem;color:#1E1A17;margin:6px 0;">
+            Training capture — 5 samples per letter
+        </h2>
+        <p class="cap-intro">
+            For each letter A–Z, sign the letter and click <strong>Capture</strong>
+            five times (vary your hand angle / position / lighting between shots).
+            Each capture saves a JPEG frame, the 21-point MediaPipe landmarks,
+            and detected handedness. When all 130 samples are taken, click
+            <strong>Download JSON</strong> — output is a single bundle file you
+            can feed to a training pipeline.
+        </p>
+
+        <div class="cap-stage">
+            <video id="cap-video" autoplay playsinline muted width="640" height="480"></video>
+            <canvas id="cap-canvas" width="640" height="480"></canvas>
+        </div>
+
+        <div class="cap-letter" id="cap-letter">A</div>
+        <div class="train-counter">Sample <strong id="train-sample">1</strong> / <strong id="train-total">5</strong></div>
+        <div class="cap-status" id="cap-status">Loading…</div>
+
+        <div class="cap-controls">
+            <button class="button-neon" id="cap-start"><span>Start Camera</span></button>
+            <button class="button-neon" id="cap-capture"><span>Capture</span></button>
+            <button class="button-neon" id="cap-retry"><span>Re-do Last</span></button>
+            <button class="button-neon" id="cap-skip"><span>Skip Letter</span></button>
+            <button class="button-neon" id="cap-download" disabled><span>Download JSON</span></button>
+        </div>
+
+        <div class="cap-grid" id="cap-grid"></div>
+    </div>
+
+    <script type="module" src="/JS/captureTraining.js"></script>
+</body>
+</html>

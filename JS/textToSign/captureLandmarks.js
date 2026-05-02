@@ -76,7 +76,6 @@ async function init() {
       toggle.classList.toggle('active');
     });
   }
-  
   document.querySelectorAll('.button-neon').forEach((btn) => {
     btn.style.setProperty('--pulse-speed', `${3.5 + Math.random() * 1.5}s`);
     (function spin() {
