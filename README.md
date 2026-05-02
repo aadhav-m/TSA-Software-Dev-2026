@@ -12,7 +12,7 @@ This repository is dedicated to our TSA States (Technosphere) 2026 submission. O
 
 ## Organization
 ```bash
-📦 your-repo-name
+📦 TSA Software Development 2026
 ├── 📁 CSS
 │   ├── styles-home.css
 │   ├── styles-sign.css

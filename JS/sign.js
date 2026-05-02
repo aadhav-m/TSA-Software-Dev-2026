@@ -188,6 +188,7 @@ function detect(now) {
     if (results.landmarks && results.landmarks.length > 0) {
       nothingCount = 0;
       drawSkeleton(results.landmarks[0]);
+      window.__lastLM = results.landmarks[0];
       processLandmarks(results.landmarks[0], now);
     } else {
       nothingCount++;
@@ -458,12 +459,11 @@ function classify(lm) {
 
 init().catch((err) => {
   console.error(err);
-  letterDiv.textContent = "Error loading model. Check console.";
+  letterDiv.textContent = "Error loading model.";
 });
 
 const toggle = document.getElementById("mobile-menu");
 const menu = document.querySelector(".navbar_menu");
-
 toggle.addEventListener("click", () => {
   menu.classList.toggle("active");
   toggle.classList.toggle("active");
