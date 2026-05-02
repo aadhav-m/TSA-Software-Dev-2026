@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignFlow — Conversation</title>
+    <link rel="stylesheet" href="/CSS/styles-sign.css">
+    <link rel="stylesheet" href="/CSS/styles-textToSign.css">
+    <script src="https://js.puter.com/v2/"></script>
+    <style>
+        /* Single-active-half layout. Both halves live in the DOM so each
+           module's auto-init runs on load and state survives swaps; the
+           inactive half is just `hidden`. The swap button sits at the
+           bottom and is the highest-emphasis control on the page.
+           Page is height-capped to one viewport — no scrolling. */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        /* The mobile dropdown menu inherits z-index: -1 from styles-sign.css
+           which puts it behind the 3D canvas in the page's root stacking
+           context. Raise it (and the toggle button + brand link, which sit in
+           the same root stacking context) above the conv-stage. */
+        header { position: relative; z-index: 50; }
+        .navbar_menu.active { z-index: 50 !important; }
+        .conv-page {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 12px 20px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: calc(100vh - 78px); /* minus header */
+        }
+        .conv-stage {
+            flex: 1 1 auto;
+            position: relative;
+            min-height: 0;
+        }
+        .conv-half {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .conv-half[hidden] { display: none !important; }
+        .conv-half.t2s-page,
+        .conv-half.s2t-page {
+            max-width: 100%;
+            padding: 0;
+        }
+        .conv-half .page-head {
+            margin: 0 0 8px;
+            padding: 0;
+            flex: 0 0 auto;
+        }
+        .conv-half .page-head h2 {
+            font-size: 1.4rem;
+            margin: 0;
+        }
+        /* Top half: t2s-grid stretches, canvas fills remaining space. */
+        .conv-half.t2s-page .t2s-grid {
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: stretch;
+        }
+        .conv-half.t2s-page .panel.output-panel {
+            min-height: 0;
+        }
+        .conv-half.t2s-page .t2s-canvas {
+            flex: 1 1 auto;
+            height: auto;
+            min-height: 0;
+        }
+        .conv-half.t2s-page textarea#t2s-source {
+            min-height: 90px;
+            flex: 0 0 auto;
+        }
+        /* Bottom half: s2t-grid stretches, panels fit available height. */
+        .conv-half.s2t-page .s2t-grid {
+            flex: 1 1 auto;
+            min-height: 0;
+            align-items: stretch;
+        }
+        .conv-half.s2t-page .panel {
+            min-height: 0;
+        }
+        /* Only the translation text scrolls if a long sentence accumulates —
+           the panel itself never scrolls, so no rogue scrollbars appear. */
+        .conv-half.s2t-page .translation {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+        }
+        /* Sentence box is contenteditable — give it a clear focus cue so it
+           reads as editable. The Speak button already pulls textContent, so
+           edits flow straight through to TTS. */
+        .conv-half.s2t-page #translation-sentence {
+            outline: none;
+            cursor: text;
+            min-height: 1.5em;
+        }
+        .conv-half.s2t-page #translation-sentence:focus {
+            outline: 2px solid #2ABFB0;
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        .conv-half.s2t-page .video-stage {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .conv-half.s2t-page .video-stage video {
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .conv-half.s2t-page .big-letter {
+            font-size: 3rem;
+            min-height: 3rem;
+            line-height: 1;
+            margin: 0 0 6px;
+        }
+        .conv-half.s2t-page .hint-list {
+            font-size: 0.78rem;
+            line-height: 1.5;
+            padding-top: 10px;
+        }
+        .panel-head .head-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        /* ── Swap bar (highest-emphasis control on the page) ─────────── */
+        .conv-swap-bar {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 0;
+        }
+        .conv-swap-btn {
+            padding: 16px 44px;
+            font-size: 1.05rem;
+            letter-spacing: 0.4px;
+            transform: translateY(0);
+            transition: transform 0.15s ease, box-shadow 0.2s ease;
+        }
+        .conv-swap-btn:hover {
+            transform: translateY(-2px);
+        }
+        .conv-swap-btn:active {
+            transform: translateY(0);
+        }
+        .conv-swap-hint {
+            font-family: 'JetBrains Mono', monospace;
+            color: #7A6F68;
+            font-size: 0.74rem;
+            text-align: center;
+            letter-spacing: 0.4px;
+        }
+        .conv-swap-hint strong {
+            color: #C45020;
+            font-weight: 600;
+        }
+
+        /* Narrow viewports: stack the two panels inside each half into rows
+           that each get half the available height. We use grid-template-rows
+           (not flex) because the panels are children of a `display: grid`
+           container — flex declarations on grid items don't apply. */
+        @media (max-width: 880px) {
+            .conv-half.t2s-page .t2s-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr; /* input height auto, canvas takes rest */
+            }
+            .conv-half.s2t-page .s2t-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;  /* camera + translation split 50/50 */
+            }
+        }
+
+        /* Mobile (≤720px): aggressive compaction so the whole page fits one
+           viewport with no internal scrollbars.
+             - drop the redundant per-half title (the swap hint says which
+               side is showing)
+             - drop the panel-hint ("One hand, well-lit") and swap-hint
+               subtitle to claw back vertical space
+             - shrink panel padding from 22px to 10px
+             - ellipsize the big-letter so multi-word status messages
+               ("Model ready — press Start") never wrap or push content
+             - keep the camera + translation 50/50 split via the 880px rule
+               above, with the video object-fit:contain'd so it letterboxes */
+        @media (max-width: 720px) {
+            .conv-page {
+                padding: 6px 10px 8px;
+                height: calc(100vh - 70px);
+                gap: 4px;
+            }
+            .conv-half .page-head { display: none; }
+            .conv-half.t2s-page .panel,
+            .conv-half.s2t-page .panel {
+                padding: 10px 12px;
+                gap: 8px;
+                border-radius: 12px;
+            }
+            .conv-half.s2t-page .panel-head {
+                gap: 6px;
+            }
+            .conv-half.s2t-page .panel-hint { display: none; }
+            .conv-half.s2t-page .panel-label {
+                font-size: 0.65rem;
+                padding: 3px 8px;
+            }
+            .conv-half.s2t-page .big-letter-label,
+            .conv-half.s2t-page .sentence-label {
+                font-size: 0.62rem;
+                margin: 0;
+            }
+            .conv-half.s2t-page .big-letter {
+                font-size: 1.2rem;
+                min-height: 1.4em;
+                letter-spacing: 0;
+                line-height: 1.2;
+                margin: 0 0 2px;
+                font-weight: 700;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-align: center;
+            }
+            .conv-half.s2t-page .translation {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+                min-height: 30px;
+            }
+            .conv-half.s2t-page .video-controls {
+                gap: 6px;
+            }
+            .conv-half.s2t-page .video-controls .button-neon.compact {
+                padding: 8px 16px;
+                font-size: 0.78rem;
+            }
+            .conv-half.s2t-page .head-actions .button-neon.compact {
+                padding: 6px 10px;
+                font-size: 0.72rem;
+            }
+            .conv-half.s2t-page .hint-list { display: none; }
+            .conv-half.t2s-page textarea#t2s-source {
+                min-height: 60px;
+                font-size: 0.85rem;
+            }
+            .conv-half.t2s-page .button-neon.primary {
+                padding: 10px 20px;
+                font-size: 0.85rem;
+            }
+            .conv-swap-btn {
+                padding: 10px 24px;
+                font-size: 0.9rem;
+            }
+            .conv-swap-hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>
+            <a href="/HTML/index.html" style="text-decoration: none;">SignFlow</a>
+        </h1>
+        <div class="navbar_toggle" id="mobile-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="navbar_menu">
+            <li class="navbar_item">
+                <a href="/HTML/index.html" style="text-decoration: none;" class="navbar_links">Home</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/SignToText.html" style="text-decoration: none;" class="navbar_links">Sign → Text</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSign.html" style="text-decoration: none;" class="navbar_links">Text → Sign</a>
+            </li>
+            <li class="navbar_item">
+                <a href="/HTML/TextToSpeech.html" style="text-decoration: none;" class="navbar_links">Text → Speech</a>
+            </li>
+        </ul>
+    </header>
+
+    <main class="conv-page">
+      <div class="conv-stage">
+        <!-- TOP HALF: Text → 3D Sign Language ------------------------------ -->
+        <!-- DOM ids match what /JS/textToSign/signRenderer.js auto-init needs:
+             #t2s-canvas, #t2s-source, #t2s-play. Markup is the same shape as
+             HTML/TextToSign.html so the existing styles in styles-textToSign
+             apply unchanged. -->
+        <section class="conv-half t2s-page" data-conv-side="top">
+            <div class="page-head">
+                <h2>Text → Sign Language</h2>
+            </div>
+            <div class="t2s-grid">
+                <section class="panel input-panel">
+                    <textarea id="t2s-source" placeholder="Type a word or sentence…">HELLO</textarea>
+                    <div class="t2s-speed-row">
+                        <label for="t2s-speed">Speed</label>
+                        <input type="range" id="t2s-speed" min="0.25" max="1" step="0.05" value="1">
+                        <span class="t2s-speed-value" id="t2s-speed-value">1×</span>
+                    </div>
+                    <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
+                </section>
+                <section class="panel output-panel">
+                    <canvas id="t2s-canvas" class="t2s-canvas"></canvas>
+                </section>
+            </div>
+        </section>
+
+        <!-- BOTTOM HALF: Sign Language → Text → Speech ---------------------- -->
+        <!-- DOM ids match what /JS/sign.js auto-init needs:
+             #video, #startButton, #stopButton, #translation-letter,
+             #translation-sentence, #clearTranslation. The new "🔊 Speak"
+             button (#tts-speak-btn) is wired by the inline TTS script
+             below; it reads from #translation-sentence and calls
+             puter.ai.txt2speech, mirroring HTML/TextToSpeech.html. -->
+        <section class="conv-half s2t-page" data-conv-side="bottom" hidden>
+            <div class="page-head">
+                <h2>Sign Language → Text → Speech</h2>
+            </div>
+            <div class="s2t-grid">
+                <section class="panel video-panel">
+                    <div class="panel-head">
+                        <span class="panel-label">Camera</span>
+                        <span class="panel-hint">One hand, well-lit</span>
+                    </div>
+                    <div class="video-stage">
+                        <video class="video" id="video" autoplay playsinline muted></video>
+                    </div>
+                    <div class="video-controls">
+                        <button class="button-neon compact" id="startButton"><span>Start</span></button>
+                        <button class="button-neon compact" id="stopButton"><span>Stop</span></button>
+                    </div>
+                </section>
+
+                <section class="panel output-panel">
+                    <div class="panel-head">
+                        <span class="panel-label">Translation</span>
+                        <div class="head-actions">
+                            <button class="button-neon compact" id="tts-speak-btn"><span>🔊 Speak</span></button>
+                            <button class="button-neon compact ghost" id="clearTranslation"><span>Clear</span></button>
+                        </div>
+                    </div>
+                    <div class="big-letter-label">Current letter</div>
+                    <div class="big-letter" id="translation-letter">—</div>
+                    <div class="sentence-label">Sentence</div>
+                    <div class="translation">
+                        <div id="translation-sentence" contenteditable="true" spellcheck="false">&nbsp;</div>
+                    </div>
+                    <ul class="hint-list">
+                        <li><strong>SPACE</strong> — open hand, thumb out</li>
+                        <li><strong>DELETE</strong> — closed fist, thumb down</li>
+                        <li><strong>J / Z</strong> — motion gestures (hold I or G then trace)</li>
+                    </ul>
+                </section>
+            </div>
+        </section>
+      </div>
+      <!-- Swap bar — highest-emphasis control on the page. Toggles which
+           half is visible. Both halves remain in the DOM so each module's
+           auto-init runs once on load and state persists across swaps. -->
+      <div class="conv-swap-bar">
+        <button class="button-neon primary conv-swap-btn" id="conv-swap" type="button">
+          <span>🔄 Swap Conversation</span>
+        </button>
+        <div class="conv-swap-hint">Currently showing: <strong id="conv-swap-current">Text → Sign</strong></div>
+      </div>
+    </main>
+
+    <!-- three.js for the top-half renderer (same importmap as TextToSign.html) -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+    </script>
+
+    <!-- Top-half module (auto-inits against the DOM ids above) -->
+    <script type="module" src="/JS/textToSign/signRenderer.js"></script>
+
+    <!-- Bottom-half recognition module (auto-inits against the DOM ids above).
+         This module also attaches the navbar-toggle handler and the
+         button-neon hue randomiser, so we don't include /JS/index.js. -->
+    <script type="module" src="/JS/sign.js"></script>
+
+    <!-- Swap-half toggle. Both halves stay in the DOM (their modules already
+         auto-initialised on page load); we just flip the `hidden` attribute
+         so only one is visible at a time. State persists across swaps. -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const swapBtn   = document.getElementById('conv-swap');
+            const currentEl = document.getElementById('conv-swap-current');
+            const halves    = document.querySelectorAll('.conv-half');
+            const labels = { top: 'Text → Sign', bottom: 'Sign → Text → Speech' };
+            let active = 'top';
+
+            const apply = () => {
+                halves.forEach((h) => { h.hidden = h.dataset.convSide !== active; });
+                currentEl.textContent = labels[active];
+                // Force the 3D renderer to re-fit when its canvas becomes
+                // visible again — clientWidth was 0 while hidden so the
+                // ResizeObserver won't have updated it.
+                if (active === 'top' && window.__t2s && typeof window.__t2s._resize === 'function') {
+                    requestAnimationFrame(() => window.__t2s._resize());
+                }
+            };
+
+            swapBtn.addEventListener('click', () => {
+                active = active === 'top' ? 'bottom' : 'top';
+                apply();
+            });
+            apply();
+        });
+    </script>
+
+    <!-- Inline TTS for the bottom half. Re-uses the puter.ai.txt2speech call
+         pattern from HTML/TextToSpeech.html, sourcing text from the
+         recognition module's #translation-sentence output instead of a
+         dedicated input. -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const speakBtn = document.getElementById('tts-speak-btn');
+            const sentence = document.getElementById('translation-sentence');
+            let currentAudio = null;
+
+            speakBtn.addEventListener('click', async () => {
+                const span = speakBtn.querySelector('span');
+                const text = (sentence?.textContent || '').trim();
+
+                if (!text) {
+                    span.textContent = 'Sign first!';
+                    setTimeout(() => { span.textContent = '🔊 Speak'; }, 1200);
+                    return;
+                }
+                if (speakBtn.disabled) return;
+
+                if (!(await puter.auth.isSignedIn())) {
+                    await puter.auth.signIn();
+                }
+
+                speakBtn.disabled = true;
+                span.textContent = 'Speaking…';
+
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+
+                try {
+                    const audio = await puter.ai.txt2speech(text, {
+                        voice: 'Joanna',
+                        engine: 'generative',
+                        language: 'en-US',
+                    });
+                    currentAudio = audio;
+                    audio.play();
+                    audio.onended = () => {
+                        currentAudio = null;
+                        speakBtn.disabled = false;
+                        span.textContent = '🔊 Speak';
+                    };
+                } catch (err) {
+                    speakBtn.disabled = false;
+                    span.textContent = '🔊 Speak';
+                    alert('TTS error: ' + err.message);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
