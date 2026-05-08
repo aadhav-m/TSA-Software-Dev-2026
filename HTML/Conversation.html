@@ -4,24 +4,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SignFlow — Conversation</title>
+    <title>SignFlow</title>
     <link rel="stylesheet" href="/CSS/styles-sign.css">
     <link rel="stylesheet" href="/CSS/styles-textToSign.css">
     <script src="https://js.puter.com/v2/"></script>
     <style>
-        /* Single-active-half layout. Both halves live in the DOM so each
-           module's auto-init runs on load and state survives swaps; the
-           inactive half is just `hidden`. The swap button sits at the
-           bottom and is the highest-emphasis control on the page.
-           Page is height-capped to one viewport — no scrolling. */
         html, body {
             height: 100%;
             overflow: hidden;
         }
-        /* The mobile dropdown menu inherits z-index: -1 from styles-sign.css
-           which puts it behind the 3D canvas in the page's root stacking
-           context. Raise it (and the toggle button + brand link, which sit in
-           the same root stacking context) above the conv-stage. */
         header { position: relative; z-index: 50; }
         .navbar_menu.active { z-index: 50 !important; }
         .conv-page {
@@ -60,7 +51,6 @@
             font-size: 1.4rem;
             margin: 0;
         }
-        /* Top half: t2s-grid stretches, canvas fills remaining space. */
         .conv-half.t2s-page .t2s-grid {
             flex: 1 1 auto;
             min-height: 0;
@@ -78,7 +68,6 @@
             min-height: 90px;
             flex: 0 0 auto;
         }
-        /* Bottom half: s2t-grid stretches, panels fit available height. */
         .conv-half.s2t-page .s2t-grid {
             flex: 1 1 auto;
             min-height: 0;
@@ -87,16 +76,11 @@
         .conv-half.s2t-page .panel {
             min-height: 0;
         }
-        /* Only the translation text scrolls if a long sentence accumulates —
-           the panel itself never scrolls, so no rogue scrollbars appear. */
         .conv-half.s2t-page .translation {
             flex: 1 1 auto;
             min-height: 0;
             overflow: auto;
         }
-        /* Sentence box is contenteditable — give it a clear focus cue so it
-           reads as editable. The Speak button already pulls textContent, so
-           edits flow straight through to TTS. */
         .conv-half.s2t-page #translation-sentence {
             outline: none;
             cursor: text;
@@ -131,8 +115,42 @@
             gap: 8px;
             align-items: center;
         }
+        .t2s-conv-actions {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+        .t2s-conv-actions .button-neon.primary { flex: 1 1 50%; min-width: 130px; }
+        .t2s-conv-mic {
+            flex: 1 1 50%;
+            min-width: 130px;
+            padding: 12px 20px;
+            border-radius: 999px;
+            border: 2px solid #2ABFB0;
+            background: #FAF7F4;
+            color: #1A9E91;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s ease, box-shadow 0.2s ease;
+        }
+        .t2s-conv-mic:hover { background: #F2EDE8; }
+        .t2s-conv-mic.listening {
+            background: linear-gradient(135deg, #2ABFB0, #1A9E91);
+            color: #FAF7F4;
+            border-color: #2ABFB0;
+            animation: t2s-conv-mic-pulse 1.2s ease-in-out infinite;
+        }
+        .t2s-conv-mic[hidden] { display: none; }
+        @keyframes t2s-conv-mic-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(42, 191, 176, 0.45); }
+            50%      { box-shadow: 0 0 0 12px rgba(42, 191, 176, 0); }
+        }
 
-        /* ── Swap bar (highest-emphasis control on the page) ─────────── */
         .conv-swap-bar {
             flex: 0 0 auto;
             display: flex;
@@ -166,32 +184,17 @@
             font-weight: 600;
         }
 
-        /* Narrow viewports: stack the two panels inside each half into rows
-           that each get half the available height. We use grid-template-rows
-           (not flex) because the panels are children of a `display: grid`
-           container — flex declarations on grid items don't apply. */
         @media (max-width: 880px) {
             .conv-half.t2s-page .t2s-grid {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto 1fr; /* input height auto, canvas takes rest */
+                grid-template-rows: auto 1fr;
             }
             .conv-half.s2t-page .s2t-grid {
                 grid-template-columns: 1fr;
-                grid-template-rows: 1fr 1fr;  /* camera + translation split 50/50 */
+                grid-template-rows: 1fr 1fr;
             }
         }
 
-        /* Mobile (≤720px): aggressive compaction so the whole page fits one
-           viewport with no internal scrollbars.
-             - drop the redundant per-half title (the swap hint says which
-               side is showing)
-             - drop the panel-hint ("One hand, well-lit") and swap-hint
-               subtitle to claw back vertical space
-             - shrink panel padding from 22px to 10px
-             - ellipsize the big-letter so multi-word status messages
-               ("Model ready — press Start") never wrap or push content
-             - keep the camera + translation 50/50 split via the 880px rule
-               above, with the video object-fit:contain'd so it letterboxes */
         @media (max-width: 720px) {
             .conv-page {
                 padding: 6px 10px 8px;
@@ -291,11 +294,6 @@
 
     <main class="conv-page">
       <div class="conv-stage">
-        <!-- TOP HALF: Text → 3D Sign Language ------------------------------ -->
-        <!-- DOM ids match what /JS/textToSign/signRenderer.js auto-init needs:
-             #t2s-canvas, #t2s-source, #t2s-play. Markup is the same shape as
-             HTML/TextToSign.html so the existing styles in styles-textToSign
-             apply unchanged. -->
         <section class="conv-half t2s-page" data-conv-side="top">
             <div class="page-head">
                 <h2>Text → Sign Language</h2>
@@ -308,7 +306,10 @@
                         <input type="range" id="t2s-speed" min="0.25" max="1" step="0.05" value="1">
                         <span class="t2s-speed-value" id="t2s-speed-value">1×</span>
                     </div>
-                    <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
+                    <div class="t2s-conv-actions">
+                        <button class="t2s-conv-mic" id="t2s-conv-mic" type="button">🎤 Speak</button>
+                        <button class="button-neon primary" id="t2s-play"><span>✋ Sign It</span></button>
+                    </div>
                 </section>
                 <section class="panel output-panel">
                     <canvas id="t2s-canvas" class="t2s-canvas"></canvas>
@@ -316,13 +317,6 @@
             </div>
         </section>
 
-        <!-- BOTTOM HALF: Sign Language → Text → Speech ---------------------- -->
-        <!-- DOM ids match what /JS/sign.js auto-init needs:
-             #video, #startButton, #stopButton, #translation-letter,
-             #translation-sentence, #clearTranslation. The new "🔊 Speak"
-             button (#tts-speak-btn) is wired by the inline TTS script
-             below; it reads from #translation-sentence and calls
-             puter.ai.txt2speech, mirroring HTML/TextToSpeech.html. -->
         <section class="conv-half s2t-page" data-conv-side="bottom" hidden>
             <div class="page-head">
                 <h2>Sign Language → Text → Speech</h2>
@@ -365,9 +359,6 @@
             </div>
         </section>
       </div>
-      <!-- Swap bar — highest-emphasis control on the page. Toggles which
-           half is visible. Both halves remain in the DOM so each module's
-           auto-init runs once on load and state persists across swaps. -->
       <div class="conv-swap-bar">
         <button class="button-neon primary conv-swap-btn" id="conv-swap" type="button">
           <span>🔄 Swap Conversation</span>
@@ -376,7 +367,6 @@
       </div>
     </main>
 
-    <!-- three.js for the top-half renderer (same importmap as TextToSign.html) -->
     <script type="importmap">
     {
       "imports": {
@@ -386,17 +376,10 @@
     }
     </script>
 
-    <!-- Top-half module (auto-inits against the DOM ids above) -->
     <script type="module" src="/JS/textToSign/signRenderer.js"></script>
 
-    <!-- Bottom-half recognition module (auto-inits against the DOM ids above).
-         This module also attaches the navbar-toggle handler and the
-         button-neon hue randomiser, so we don't include /JS/index.js. -->
     <script type="module" src="/JS/sign.js"></script>
 
-    <!-- Swap-half toggle. Both halves stay in the DOM (their modules already
-         auto-initialised on page load); we just flip the `hidden` attribute
-         so only one is visible at a time. State persists across swaps. -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const swapBtn   = document.getElementById('conv-swap');
@@ -408,9 +391,6 @@
             const apply = () => {
                 halves.forEach((h) => { h.hidden = h.dataset.convSide !== active; });
                 currentEl.textContent = labels[active];
-                // Force the 3D renderer to re-fit when its canvas becomes
-                // visible again — clientWidth was 0 while hidden so the
-                // ResizeObserver won't have updated it.
                 if (active === 'top' && window.__t2s && typeof window.__t2s._resize === 'function') {
                     requestAnimationFrame(() => window.__t2s._resize());
                 }
@@ -424,10 +404,61 @@
         });
     </script>
 
-    <!-- Inline TTS for the bottom half. Re-uses the puter.ai.txt2speech call
-         pattern from HTML/TextToSpeech.html, sourcing text from the
-         recognition module's #translation-sentence output instead of a
-         dedicated input. -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const micBtn   = document.getElementById('t2s-conv-mic');
+            const sourceEl = document.getElementById('t2s-source');
+            const playBtn  = document.getElementById('t2s-play');
+            if (!micBtn || !sourceEl) return;
+            if (!SR) {
+                micBtn.hidden = true;
+                console.warn('[t2s-conv-mic] SpeechRecognition not supported in this browser.');
+                return;
+            }
+            const rec = new SR();
+            rec.lang = 'en-US';
+            rec.interimResults = false;
+            rec.continuous = false;
+
+            let listening = false;
+            const setIdle = (label = '🎤 Speak') => {
+                listening = false;
+                micBtn.classList.remove('listening');
+                micBtn.textContent = label;
+            };
+            const setListening = () => {
+                listening = true;
+                micBtn.classList.add('listening');
+                micBtn.textContent = '● Listening…';
+            };
+
+            micBtn.addEventListener('click', () => {
+                if (listening) { try { rec.stop(); } catch {} return; }
+                try {
+                    rec.start();
+                    setListening();
+                } catch (err) {
+                    console.error('[t2s-conv-mic] start failed:', err);
+                    setIdle();
+                }
+            });
+
+            rec.addEventListener('result', (e) => {
+                const text = (e.results?.[0]?.[0]?.transcript || '').trim();
+                if (!text) return;
+                sourceEl.value = text;
+                sourceEl.dispatchEvent(new Event('input', { bubbles: true }));
+                if (playBtn) playBtn.click();
+            });
+            rec.addEventListener('end', () => setIdle());
+            rec.addEventListener('error', (e) => {
+                console.error('[t2s-conv-mic] error:', e.error);
+                setIdle(e.error === 'not-allowed' ? '⚠ Mic denied' : '🎤 Speak');
+            });
+        });
+    </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const speakBtn = document.getElementById('tts-speak-btn');

@@ -51,7 +51,7 @@ let prevPinky = null;
 let prevIndex = null;
 
 function renderSentence() {
-  sentenceDiv.textContent = sentenceChars.join("") || " ";
+  sentenceDiv.textContent = sentenceChars.join("") || "\u00a0";
 }
 
 function setupCanvas() {
@@ -387,71 +387,37 @@ function classify(lm) {
   const mDirYn  = mDirY / mDirMag;
 
   if (iExt && mExt && rExt && pExt && thumbRelX > 0.8) return "SPACE";
-
   if (iCrl && mCrl && rCrl && pCrl && thumbRelY > 0.5) return "DELETE";
-
-  if (iExt && mExt && rExt && pExt
-      && iRelY < -0.5 && mRelY < -0.5
-      && Math.abs(thumbRelX) < 0.35) return "B";
-
+  if (iExt && mExt && rExt && pExt && iRelY < -0.5 && mRelY < -0.5 && Math.abs(thumbRelX) < 0.35) return "B";
   if (iExt && mExt && rExt && !pExt && imGap > 0.15 && mrGap > 0.15) return "W";
 
   if (iExt && mExt && !rExt && !pExt) {
-
     if (iRelX > 0.8 && Math.abs(iDirYn) < 0.4) return "H";
-
     if (iRelY < -0.5 && mRelY < -0.5 && imGap < 0.13) return "R";
-
     if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.13 && imGap < 0.30) return "U";
-
     if (iRelY < -0.5 && mRelY < -0.5 && imGap >= 0.30) return "V";
-
     if (mRelY < -0.5 && iRelX > 0.3 && imGap > 0.30 && thumbRelY < -0.35) return "K";
-
     if (iRelX > 0.5 && mRelY > 0.5) return "P";
   }
 
   if (iExt && mCrl && rCrl && iRelY < -0.7 && thumbRelX > 0.35) return "L";
-
   if (iExt && !mExt && iRelY < -0.6 && imGap > 0.7 && t_m < 0.30 && t_r < 0.25) return "D";
-
   if (iExt && mCrl && rCrl && pCrl && iRelX > 0.7 && Math.abs(iRelY) < 0.25) return "G";
-
   if (iExt && !mExt && iRelX > 0.5 && iRelY > -0.2 && mRelY > 0.5) return "Q";
-
   if (iMid && mCrl && rCrl && pCrl && iRelY < -0.3 && imGap > 0.5) return "X";
-
-  if (iMid && mMid && !iExt && !mExt && !rExt && !pExt
-      && iRelX > 0.3 && imGap < 0.12 && iRelY < -0.1 && iRelY > -0.5) return "C";
-
+  if (iMid && mMid && !iExt && !mExt && !rExt && !pExt && iRelX > 0.3 && imGap < 0.12 && iRelY < -0.1 && iRelY > -0.5) return "C";
   if (!iExt && mExt && rExt && pExt && t_i < 0.15 && mRelY < -0.5) return "F";
-
   if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5 && thumbRelY < -0.4) return "Y";
-
   if (!iExt && !mExt && !rExt && pExt && pRelY < -0.5) return "I";
 
   if (!iExt && !mExt && !rExt && !pExt) {
-
     if (t_i < 0.22 && t_m < 0.22 && t_r < 0.22 && imGap < 0.10) return "O";
-
-    if (IC < 115 && MC < 115 && RC < 115 && PC < 115
-        && t_i < 0.20 && t_m < 0.20 && Math.abs(iRelY) < 0.15) return "E";
-
+    if (IC < 115 && MC < 115 && RC < 115 && PC < 115 && t_i < 0.20 && t_m < 0.20 && Math.abs(iRelY) < 0.15) return "E";
     if (IC < 120 && MC < 120 && thumbRelY < -0.65 && t_i < 0.60 && Math.abs(iRelY) < 0.20) return "T";
-
-    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
-        && iRelY > 0.10 && mRelY > 0.10
-        && t_m < 0.70 && t_r < 0.55 && t_p > 0.50) return "M";
-
-    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
-        && iRelY > 0.05 && mRelY > 0.05
-        && t_m < 0.55 && t_r > 0.60) return "N";
-
-    if (IC < 115 && MC < 115 && RC < 115 && PC < 115
-        && t_i < 0.35 && thumbRelX > -0.40 && thumbRelX < 0.15) return "S";
-
-    if (IC < 120 && MC < 120 && RC < 120 && PC < 120
-        && thumbRelX > 0.10 && t_i > 0.45) return "A";
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120 && iRelY > 0.10 && mRelY > 0.10 && t_m < 0.70 && t_r < 0.55 && t_p > 0.50) return "M";
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120 && iRelY > 0.05 && mRelY > 0.05 && t_m < 0.55 && t_r > 0.60) return "N";
+    if (IC < 115 && MC < 115 && RC < 115 && PC < 115 && t_i < 0.35 && thumbRelX > -0.40 && thumbRelX < 0.15) return "S";
+    if (IC < 120 && MC < 120 && RC < 120 && PC < 120 && thumbRelX > 0.10 && t_i > 0.45) return "A";
   }
 
   return "NOTHING";
